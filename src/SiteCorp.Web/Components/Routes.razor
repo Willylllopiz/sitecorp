@@ -1,0 +1,19 @@
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                <RedirectToLogin />
+            </NotAuthorized>
+        </AuthorizeRouteView>
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <LayoutView Layout="typeof(MainLayout)">
+            <section class="empty-state">
+                <p class="eyebrow">404</p>
+                <h1>Vista no encontrada</h1>
+                <p>La ruta solicitada no existe en SiteCorp.</p>
+            </section>
+        </LayoutView>
+    </NotFound>
+</Router>

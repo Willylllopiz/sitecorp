@@ -1,0 +1,68 @@
+@page "/positions"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject HumanResourcesViewService HrService
+
+<PageTitle>SiteCorp | Vacantes</PageTitle>
+
+@if (_snapshot is null)
+{
+    <section class="loading-panel">
+        <div class="loader"></div>
+        <p>Cargando vacantes...</p>
+    </section>
+}
+else
+{
+    <section class="page-header compact">
+        <div>
+            <p class="eyebrow">Reclutamiento</p>
+            <h1>Vacantes</h1>
+            <p class="subtitle">Pipeline inicial para puestos abiertos y fechas objetivo.</p>
+        </div>
+    </section>
+
+    <section class="position-grid">
+        @foreach (var position in _snapshot.Positions)
+        {
+            <article class="position-card">
+                <div class="position-card-header">
+                    <span class="@GetStatusClass(position.Status)">@GetStatusLabel(position.Status)</span>
+                    <span>@position.Candidates candidatos</span>
+                </div>
+                <h2>@position.Title</h2>
+                <p>@position.Department · @position.Location</p>
+                <div class="position-footer">
+                    <span>Inicio objetivo</span>
+                    <strong>@position.TargetStartDate.ToString("MMM d, yyyy")</strong>
+                </div>
+            </article>
+        }
+    </section>
+}
+
+@code {
+    private HumanResourcesSnapshot? _snapshot;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _snapshot = await HrService.GetSnapshotAsync();
+    }
+
+    private static string GetStatusClass(PositionStatus status) => status switch
+    {
+        PositionStatus.Open => "pill info",
+        PositionStatus.Interviewing => "pill warning",
+        PositionStatus.Offer => "pill success",
+        _ => "pill muted"
+    };
+
+    private static string GetStatusLabel(PositionStatus status) => status switch
+    {
+        PositionStatus.Open => "Abierta",
+        PositionStatus.Interviewing => "Entrevistas",
+        PositionStatus.Offer => "Oferta",
+        PositionStatus.OnHold => "Pausada",
+        _ => status.ToString()
+    };
+}

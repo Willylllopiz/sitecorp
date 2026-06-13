@@ -1,0 +1,53 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject NavigationManager Navigation
+
+<PageTitle>SiteCorp | Login</PageTitle>
+
+<section class="login-shell">
+    <div class="login-panel">
+        <div class="brand login-brand">
+            <div class="brand-mark">SC</div>
+            <div>
+                <strong>SiteCorp</strong>
+                <span>Recursos Humanos</span>
+            </div>
+        </div>
+
+        <div class="login-copy">
+            <p class="eyebrow">Acceso seguro</p>
+            <h1>Iniciar sesion</h1>
+            <p>Ingresa con tu cuenta para acceder al panel operativo.</p>
+        </div>
+
+        @if (HasInvalidCredentials)
+        {
+            <div class="alert-error">Usuario o password incorrectos.</div>
+        }
+
+        <form class="login-form" method="post" action="/auth/sign-in">
+            <label>
+                Usuario
+                <input name="userName" autocomplete="username" required autofocus />
+            </label>
+
+            <label>
+                Password
+                <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+
+            <button class="action-button login-button" type="submit">Entrar</button>
+        </form>
+    </div>
+</section>
+
+@code {
+    private bool HasInvalidCredentials { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
+        HasInvalidCredentials = query.TryGetValue("error", out var error) && error == "invalid";
+    }
+}

@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">SC</div>
+            <div>
+                <strong>SiteCorp</strong>
+                <span>Recursos Humanos</span>
+            </div>
+        </div>
+
+        <nav class="nav">
+            <NavLink href="" Match="NavLinkMatch.All">Panel</NavLink>
+            <NavLink href="employees">Personas</NavLink>
+            <NavLink href="positions">Vacantes</NavLink>
+        </nav>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="session-card">
+                    <span>@context.User.FindFirst("full_name")?.Value</span>
+                    <strong>@context.User.Identity?.Name</strong>
+                    <a href="/logout">Cerrar sesion</a>
+                </div>
+            </Authorized>
+        </AuthorizeView>
+    </aside>
+
+    <main class="workspace">
+        @Body
+    </main>
+</div>

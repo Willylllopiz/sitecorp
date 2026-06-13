@@ -1,0 +1,129 @@
+@page "/"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.Globalization
+@inject HumanResourcesViewService HrService
+
+<PageTitle>SiteCorp | Panel de RR. HH.</PageTitle>
+
+@if (_snapshot is null)
+{
+    <section class="loading-panel">
+        <div class="loader"></div>
+        <p>Cargando indicadores de Recursos Humanos...</p>
+    </section>
+}
+else
+{
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Operacion diaria</p>
+            <h1>Panel de Recursos Humanos</h1>
+            <p class="subtitle">Seguimiento de talento, vacantes, licencias y salud organizacional.</p>
+        </div>
+
+        <div class="header-actions">
+            <span class="@(_snapshot.IsLive ? "status live" : "status sample")">
+                @(_snapshot.IsLive ? "API activo" : "Datos de ejemplo")
+            </span>
+            <button class="action-button" @onclick="RefreshAsync">Actualizar</button>
+        </div>
+    </section>
+
+    <section class="metric-grid">
+        <article class="metric-card">
+            <span>Colaboradores</span>
+            <strong>@_snapshot.Metrics.TotalEmployees</strong>
+            <small>@_snapshot.Metrics.ActiveEmployees activos</small>
+        </article>
+        <article class="metric-card accent-blue">
+            <span>Vacantes abiertas</span>
+            <strong>@_snapshot.Metrics.OpenPositions</strong>
+            <small>Reclutamiento en curso</small>
+        </article>
+        <article class="metric-card accent-amber">
+            <span>Licencias pendientes</span>
+            <strong>@_snapshot.Metrics.PendingLeaveRequests</strong>
+            <small>Esperando decision</small>
+        </article>
+        <article class="metric-card accent-green">
+            <span>Onboarding</span>
+            <strong>@_snapshot.Metrics.OnboardingThisMonth</strong>
+            <small>Este mes</small>
+        </article>
+    </section>
+
+    <section class="content-grid">
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Distribucion</p>
+                    <h2>Departamentos</h2>
+                </div>
+                <span class="pill">@FormatPercentage(_snapshot.Metrics.AverageEngagement)% engagement</span>
+            </div>
+
+            <div class="engagement-bar" aria-label="Promedio de engagement">
+                <div class="engagement-fill" style="@($"width: {FormatPercentage(Math.Clamp(_snapshot.Metrics.AverageEngagement, 0, 100))}%")"></div>
+            </div>
+
+            <div class="department-list">
+                @foreach (var department in _snapshot.Metrics.Departments)
+                {
+                    <div class="department-row">
+                        <div>
+                            <strong>@department.Name</strong>
+                            <span>@department.ManagerName</span>
+                        </div>
+                        <div class="department-numbers">
+                            <span>@department.HeadCount personas</span>
+                            <span>@department.OpenRoles vacantes</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </article>
+
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Prioridad</p>
+                    <h2>Licencias pendientes</h2>
+                </div>
+            </div>
+
+            <div class="request-list">
+                @foreach (var request in _snapshot.LeaveRequests.Where(item => item.Status == LeaveRequestStatus.Pending))
+                {
+                    <div class="request-row">
+                        <div>
+                            <strong>@request.EmployeeName</strong>
+                            <span>@request.Reason</span>
+                        </div>
+                        <span>@request.StartDate.ToString("MMM d") - @request.EndDate.ToString("MMM d")</span>
+                    </div>
+                }
+            </div>
+        </article>
+    </section>
+}
+
+@code {
+    private HumanResourcesSnapshot? _snapshot;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _snapshot = await HrService.GetSnapshotAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
+        _snapshot = null;
+        _snapshot = await HrService.GetSnapshotAsync();
+    }
+
+    private static string FormatPercentage(double value)
+    {
+        return value.ToString("0.#", CultureInfo.InvariantCulture);
+    }
+}

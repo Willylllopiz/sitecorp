@@ -1,0 +1,83 @@
+@page "/employees"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject HumanResourcesViewService HrService
+
+<PageTitle>SiteCorp | Personas</PageTitle>
+
+@if (_snapshot is null)
+{
+    <section class="loading-panel">
+        <div class="loader"></div>
+        <p>Cargando colaboradores...</p>
+    </section>
+}
+else
+{
+    <section class="page-header compact">
+        <div>
+            <p class="eyebrow">Directorio</p>
+            <h1>Personas</h1>
+            <p class="subtitle">Vista base para seguimiento de estado, rol y engagement.</p>
+        </div>
+    </section>
+
+    <section class="panel table-panel">
+        <table>
+            <thead>
+                <tr>
+                    <th>Codigo</th>
+                    <th>Nombre</th>
+                    <th>Departamento</th>
+                    <th>Puesto</th>
+                    <th>Ubicacion</th>
+                    <th>Estado</th>
+                    <th>Engagement</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var employee in _snapshot.Employees)
+                {
+                    <tr>
+                        <td>@employee.EmployeeNumber</td>
+                        <td>
+                            <strong>@employee.FullName</strong>
+                            <span>Ingreso @employee.HireDate.ToString("MMM yyyy")</span>
+                        </td>
+                        <td>@employee.Department</td>
+                        <td>@employee.Position</td>
+                        <td>@employee.Location</td>
+                        <td><span class="@GetStatusClass(employee.Status)">@GetStatusLabel(employee.Status)</span></td>
+                        <td>@employee.EngagementScore%</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+@code {
+    private HumanResourcesSnapshot? _snapshot;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _snapshot = await HrService.GetSnapshotAsync();
+    }
+
+    private static string GetStatusClass(EmploymentStatus status) => status switch
+    {
+        EmploymentStatus.Active => "pill success",
+        EmploymentStatus.Onboarding => "pill info",
+        EmploymentStatus.OnLeave => "pill warning",
+        _ => "pill muted"
+    };
+
+    private static string GetStatusLabel(EmploymentStatus status) => status switch
+    {
+        EmploymentStatus.Active => "Activo",
+        EmploymentStatus.Onboarding => "Onboarding",
+        EmploymentStatus.OnLeave => "Licencia",
+        EmploymentStatus.Offboarding => "Salida",
+        _ => status.ToString()
+    };
+}

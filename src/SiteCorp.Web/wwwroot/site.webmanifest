@@ -1,0 +1,21 @@
+{
+  "name": "SiteCorp",
+  "short_name": "SiteCorp",
+  "description": "Servicios de Capital Humano para MIPYME.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8F9FA",
+  "theme_color": "#1A5F7A",
+  "icons": [
+    {
+      "src": "assets/sitecorp/favicons/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/sitecorp/favicons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

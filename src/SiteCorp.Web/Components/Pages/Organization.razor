@@ -1,0 +1,287 @@
+@page "/organization"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject HumanResourcesApiClient HrClient
+
+<PageTitle>SiteCorp | Organizacion</PageTitle>
+
+@if (_isLoading)
+{
+    <section class="loading-panel">
+        <div class="loader"></div>
+        <p>Cargando estructura organizativa...</p>
+    </section>
+}
+else
+{
+    <section class="page-header compact">
+        <div>
+            <p class="eyebrow">Estructura</p>
+            <h1>Organizacion</h1>
+            <p class="subtitle">Alta inicial de grupos empresariales, empresas y unidades donde se contrataran personas.</p>
+        </div>
+        <div class="header-actions">
+            <button class="action-button secondary" type="button" @onclick="LoadAsync">Actualizar</button>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="@_messageCss">@_message</div>
+    }
+
+    <section class="work-grid">
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Nueva entidad</p>
+                    <h2>Registro</h2>
+                </div>
+            </div>
+
+            <form class="form-grid" @onsubmit="SaveEntityAsync" @onsubmit:preventDefault>
+                <label>
+                    Tipo
+                    <select @bind="_form.Type">
+                        <option value="@OrganizationEntityType.BusinessGroup">Grupo empresarial</option>
+                        <option value="@OrganizationEntityType.Company">Empresa</option>
+                        <option value="@OrganizationEntityType.BusinessUnit">Unidad de negocio</option>
+                    </select>
+                </label>
+
+                @if (_form.Type is OrganizationEntityType.Company)
+                {
+                    <label>
+                        Grupo empresarial
+                        <select @bind="_form.BusinessGroupId" required>
+                            <option value="@Guid.Empty">Selecciona un grupo</option>
+                            @foreach (var group in BusinessGroups)
+                            {
+                                <option value="@group.Id">@group.Name</option>
+                            }
+                        </select>
+                    </label>
+                }
+
+                @if (_form.Type is OrganizationEntityType.BusinessUnit)
+                {
+                    <label>
+                        Empresa
+                        <select @bind="_form.CompanyId" required>
+                            <option value="@Guid.Empty">Selecciona una empresa</option>
+                            @foreach (var company in Companies)
+                            {
+                                <option value="@company.Id">@company.Name</option>
+                            }
+                        </select>
+                    </label>
+                }
+
+                <label>
+                    Nombre
+                    <input @bind="_form.Name" required maxlength="180" />
+                </label>
+
+                <label class="span-2">
+                    Descripcion
+                    <textarea @bind="_form.Description" rows="3"></textarea>
+                </label>
+
+                @if (_form.Type is not OrganizationEntityType.BusinessGroup)
+                {
+                    <label>
+                        Calle
+                        <input @bind="_form.Street" required maxlength="180" />
+                    </label>
+                    <label>
+                        Numero
+                        <input @bind="_form.Number" maxlength="40" />
+                    </label>
+                    <label>
+                        Ciudad
+                        <input @bind="_form.City" required maxlength="120" />
+                    </label>
+                    <label>
+                        Provincia
+                        <input @bind="_form.Province" required maxlength="120" />
+                    </label>
+                    <label>
+                        Codigo postal
+                        <input @bind="_form.PostalCode" maxlength="40" />
+                    </label>
+                }
+
+                <div class="form-actions span-2">
+                    <button class="action-button" type="submit" disabled="@_isSaving">
+                        @(_isSaving ? "Guardando..." : "Guardar entidad")
+                    </button>
+                </div>
+            </form>
+        </article>
+
+        <article class="panel table-panel">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entity in _entities)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@entity.Name</strong>
+                                <span>@(entity.Description ?? "Sin descripcion")</span>
+                            </td>
+                            <td>@GetEntityTypeLabel(entity.EntityType)</td>
+                            <td><span class="pill success">Activa</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </article>
+    </section>
+}
+
+@code {
+    private readonly OrganizationForm _form = new();
+    private IReadOnlyList<OrganizationEntityResponse> _entities = [];
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _message;
+    private string _messageCss = "alert-success";
+
+    private IEnumerable<OrganizationEntityResponse> BusinessGroups =>
+        _entities.Where(entity => entity.EntityType is OrganizationEntityType.BusinessGroup);
+
+    private IEnumerable<OrganizationEntityResponse> Companies =>
+        _entities.Where(entity => entity.EntityType is OrganizationEntityType.Company);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _message = null;
+
+        try
+        {
+            _entities = await HrClient.GetOrganizationEntitiesAsync();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveEntityAsync()
+    {
+        _isSaving = true;
+        _message = null;
+
+        try
+        {
+            _ = _form.Type switch
+            {
+                OrganizationEntityType.BusinessGroup => await HrClient.CreateBusinessGroupAsync(
+                    new CreateBusinessGroupRequest(_form.Name, EmptyToNull(_form.Description))),
+                OrganizationEntityType.Company => await HrClient.CreateCompanyAsync(
+                    new CreateCompanyRequest(_form.BusinessGroupId, _form.Name, EmptyToNull(_form.Description), BuildAddress())),
+                OrganizationEntityType.BusinessUnit => await HrClient.CreateBusinessUnitAsync(
+                    new CreateBusinessUnitRequest(_form.CompanyId, _form.Name, EmptyToNull(_form.Description), BuildAddress())),
+                _ => throw new InvalidOperationException("Tipo de entidad no soportado.")
+            };
+
+            _form.ResetAfterSave();
+            ShowSuccess("Entidad registrada correctamente.");
+            _entities = await HrClient.GetOrganizationEntitiesAsync();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private AddressDto BuildAddress()
+    {
+        return new AddressDto(
+            _form.Street,
+            EmptyToNull(_form.Number),
+            _form.City,
+            _form.Province,
+            EmptyToNull(_form.PostalCode));
+    }
+
+    private void ShowSuccess(string message)
+    {
+        _message = message;
+        _messageCss = "alert-success";
+    }
+
+    private void ShowError(string message)
+    {
+        _message = message;
+        _messageCss = "alert-error";
+    }
+
+    private static string GetEntityTypeLabel(OrganizationEntityType entityType) => entityType switch
+    {
+        OrganizationEntityType.BusinessGroup => "Grupo empresarial",
+        OrganizationEntityType.Company => "Empresa",
+        OrganizationEntityType.BusinessUnit => "Unidad de negocio",
+        _ => entityType.ToString()
+    };
+
+    private static string? EmptyToNull(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private sealed class OrganizationForm
+    {
+        public OrganizationEntityType Type { get; set; } = OrganizationEntityType.BusinessGroup;
+
+        public Guid BusinessGroupId { get; set; }
+
+        public Guid CompanyId { get; set; }
+
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public string Street { get; set; } = string.Empty;
+
+        public string? Number { get; set; }
+
+        public string City { get; set; } = string.Empty;
+
+        public string Province { get; set; } = string.Empty;
+
+        public string? PostalCode { get; set; }
+
+        public void ResetAfterSave()
+        {
+            Name = string.Empty;
+            Description = null;
+            Street = string.Empty;
+            Number = null;
+            City = string.Empty;
+            Province = string.Empty;
+            PostalCode = null;
+        }
+    }
+}

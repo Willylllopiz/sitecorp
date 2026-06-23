@@ -157,17 +157,154 @@ protectedApi.MapGet("/positions", async (HumanResourcesService service, Cancella
 protectedApi.MapGet("/leave-requests", async (HumanResourcesService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetLeaveRequestsAsync(cancellationToken)));
 
-protectedApi.MapPost("/leave-requests", async (LeaveRequestDraft draft, HumanResourcesService service, CancellationToken cancellationToken) =>
+protectedApi.MapGet("/organization/entities", async (HumanResourcesService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetOrganizationEntitiesAsync(cancellationToken)));
+
+protectedApi.MapPost("/organization/business-groups", async (
+    CreateBusinessGroupRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
 {
     try
     {
-        var created = await service.CreateLeaveRequestAsync(draft, cancellationToken);
-        return Results.Created($"/api/leave-requests/{created.Id}", created);
+        var created = await service.CreateBusinessGroupAsync(request, cancellationToken);
+        return Results.Created($"/api/organization/entities/{created.Id}", created);
     }
     catch (DomainException exception)
     {
         return Results.BadRequest(new { message = exception.Message });
     }
 });
+
+protectedApi.MapPost("/organization/companies", async (
+    CreateCompanyRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var created = await service.CreateCompanyAsync(request, cancellationToken);
+        return Results.Created($"/api/organization/entities/{created.Id}", created);
+    }
+    catch (DomainException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+protectedApi.MapPost("/organization/business-units", async (
+    CreateBusinessUnitRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var created = await service.CreateBusinessUnitAsync(request, cancellationToken);
+        return Results.Created($"/api/organization/entities/{created.Id}", created);
+    }
+    catch (DomainException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+protectedApi.MapGet("/hr/catalogs", async (HumanResourcesService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetCatalogsAsync(cancellationToken)));
+
+protectedApi.MapGet("/people", async (HumanResourcesService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPeopleAsync(cancellationToken)));
+
+protectedApi.MapPost("/people", async (
+    CreatePersonRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var created = await service.CreatePersonAsync(request, cancellationToken);
+        return Results.Created($"/api/people/{created.Id}", created);
+    }
+    catch (DomainException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+protectedApi.MapGet("/staffing/positions", async (HumanResourcesService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetStaffingPositionsAsync(cancellationToken)));
+
+protectedApi.MapGet("/staffing/job-templates", async (HumanResourcesService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetJobTemplatesAsync(cancellationToken)));
+
+protectedApi.MapGet("/staffing/job-template-positions", async (HumanResourcesService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetJobTemplatePositionsAsync(cancellationToken)));
+
+protectedApi.MapPost("/staffing/positions", async (
+    CreateStaffingPositionRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var created = await service.CreateStaffingPositionAsync(request, cancellationToken);
+        return Results.Created($"/api/staffing/positions/{created.Id}", created);
+    }
+    catch (DomainException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+protectedApi.MapPost("/staffing/job-templates", async (
+    CreateJobTemplateRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var created = await service.CreateJobTemplateAsync(request, cancellationToken);
+        return Results.Created($"/api/staffing/job-templates/{created.Id}", created);
+    }
+    catch (DomainException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+protectedApi.MapPost("/staffing/job-templates/{jobTemplateId:guid}/positions", async (
+    Guid jobTemplateId,
+    AddJobTemplatePositionRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var created = await service.AddJobTemplatePositionAsync(jobTemplateId, request, cancellationToken);
+        return Results.Created($"/api/staffing/job-template-positions/{created.Id}", created);
+    }
+    catch (DomainException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+protectedApi.MapPost("/hiring", async (
+    HirePersonRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var created = await service.HirePersonAsync(request, cancellationToken);
+        return Results.Created($"/api/hiring/{created.Id}", created);
+    }
+    catch (DomainException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+protectedApi.MapGet("/hiring", async (HumanResourcesService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetEmploymentsAsync(cancellationToken)));
 
 app.Run();

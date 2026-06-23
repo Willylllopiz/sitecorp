@@ -3,7 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SiteCorp.Domain.Authentication;
-using SiteCorp.Domain.HumanResources;
+using SiteCorp.Domain.HumanResources.Catalogs;
+using SiteCorp.Domain.HumanResources.Organization;
+using SiteCorp.Domain.HumanResources.People;
+using SiteCorp.Domain.HumanResources.Staffing;
+using SiteCorp.Domain.HumanResources.ValueObjects;
+using AuthCompany = SiteCorp.Domain.Authentication.Company;
+using OrgCompany = SiteCorp.Domain.HumanResources.Organization.Company;
+using StaffingPosition = SiteCorp.Domain.HumanResources.Staffing.Position;
 
 namespace SiteCorp.Infrastructure.Data;
 
@@ -29,6 +36,7 @@ public static class SiteCorpDatabaseInitializer
     private static async Task SeedAsync(SiteCorpDbContext dbContext)
     {
         await SeedAuthenticationAsync(dbContext);
+        await SeedCatalogsAsync(dbContext);
         await SeedHumanResourcesAsync(dbContext);
     }
 
@@ -42,7 +50,7 @@ public static class SiteCorpDatabaseInitializer
 
         if (company is null)
         {
-            company = new Company("SiteCorp Local", "Cuba");
+            company = new AuthCompany("SiteCorp Local", "Cuba");
             company.UpdateProfile(
                 name: "SiteCorp Local",
                 legalName: "SiteCorp Local",
@@ -85,8 +93,9 @@ public static class SiteCorpDatabaseInitializer
             await dbContext.SaveChangesAsync();
         }
 
+        var permissionCodes = permissions.Select(item => item.Code).ToList();
         var storedPermissions = await dbContext.Permissions
-            .Where(permission => permissions.Select(item => item.Code).Contains(permission.Code))
+            .Where(permission => permissionCodes.Contains(permission.Code))
             .ToListAsync();
 
         foreach (var permission in storedPermissions)
@@ -133,49 +142,133 @@ public static class SiteCorpDatabaseInitializer
         }
     }
 
+    private static async Task SeedCatalogsAsync(SiteCorpDbContext dbContext)
+    {
+        await EnsureCatalogAsync(dbContext.Genders, new Gender("M", "Masculino"), item => item.Code);
+        await EnsureCatalogAsync(dbContext.Genders, new Gender("F", "Femenino"), item => item.Code);
+
+        await EnsureCatalogAsync(dbContext.SkinColors, new SkinColor("ND", "No declarado"), item => item.Code);
+        await EnsureCatalogAsync(dbContext.PoliticalAffiliations, new PoliticalAffiliation("NINGUNA", "Ninguna"), item => item.Code);
+        await EnsureCatalogAsync(dbContext.MaritalStatuses, new MaritalStatus("SOLTERO", "Soltero(a)"), item => item.Code);
+        await EnsureCatalogAsync(dbContext.MaritalStatuses, new MaritalStatus("CASADO", "Casado(a)"), item => item.Code);
+        await EnsureCatalogAsync(dbContext.EmploymentTypes, new EmploymentType("CONTRATADO", "Contratado"), item => item.Code);
+        await EnsureCatalogAsync(dbContext.DrivingLicenseCategories, new DrivingLicenseCategory("NINGUNA", "Sin licencia"), item => item.Code);
+        await EnsureCatalogAsync(dbContext.RetireeRehireStatuses, new RetireeRehireStatus("NO_APLICA", "No aplica"), item => item.Code);
+
+        if (!await dbContext.EducationLevels.AnyAsync(item => item.Code == "MEDIO"))
+        {
+            await dbContext.EducationLevels.AddAsync(new EducationLevel("MEDIO", "Nivel medio", 2));
+        }
+
+        if (!await dbContext.EducationLevels.AnyAsync(item => item.Code == "UNIVERSITARIO"))
+        {
+            await dbContext.EducationLevels.AddAsync(new EducationLevel("UNIVERSITARIO", "Universitario", 4));
+        }
+
+        await dbContext.SaveChangesAsync();
+    }
+
     private static async Task SeedHumanResourcesAsync(SiteCorpDbContext dbContext)
     {
-        if (await dbContext.Departments.AnyAsync())
+        if (await dbContext.OrganizationEntities.AnyAsync())
         {
             return;
         }
 
-        var talent = new Department("Talento y Cultura", "Mariela Fuentes");
-        var operations = new Department("Operaciones", "Daniel Crespo");
-        var finance = new Department("Finanzas", "Paula Herrera");
-        var technology = new Department("Tecnologia", "Andres Molina");
+        var university = await dbContext.EducationLevels.SingleAsync(item => item.Code == "UNIVERSITARIO");
+        var married = await dbContext.MaritalStatuses.FirstAsync(item => item.Code == "CASADO");
+        var female = await dbContext.Genders.FirstAsync(item => item.Code == "F");
+        var skinColor = await dbContext.SkinColors.FirstAsync(item => item.Code == "ND");
+        var affiliation = await dbContext.PoliticalAffiliations.FirstAsync(item => item.Code == "NINGUNA");
+        var employmentType = await dbContext.EmploymentTypes.FirstAsync(item => item.Code == "CONTRATADO");
+        var license = await dbContext.DrivingLicenseCategories.FirstAsync(item => item.Code == "NINGUNA");
+        var retireeStatus = await dbContext.RetireeRehireStatuses.FirstAsync(item => item.Code == "NO_APLICA");
 
-        await dbContext.Departments.AddRangeAsync(talent, operations, finance, technology);
+        var group = new BusinessGroup("Grupo SiteCorp Demo", "Grupo empresarial inicial para pruebas.");
+        await dbContext.BusinessGroups.AddAsync(group);
         await dbContext.SaveChangesAsync();
 
-        await dbContext.Employees.AddRangeAsync(
-            new Employee("SC-1001", "Laura Benitez", talent.Id, "HR Business Partner", "Habana", new DateOnly(2023, 3, 14), EmploymentStatus.Active, 91),
-            new Employee("SC-1002", "Rafael Suarez", operations.Id, "Supervisor de Turno", "Santiago", new DateOnly(2021, 8, 9), EmploymentStatus.Active, 78),
-            new Employee("SC-1003", "Camila Torres", finance.Id, "Analista de Nomina", "Habana", new DateOnly(2024, 1, 22), EmploymentStatus.OnLeave, 86),
-            new Employee("SC-1004", "Miguel Duarte", technology.Id, "Desarrollador Backend", "Remoto", new DateOnly(2025, 11, 3), EmploymentStatus.Active, 84),
-            new Employee("SC-1005", "Sofia Ramos", talent.Id, "Recruiter", "Habana", new DateOnly(2026, 6, 3), EmploymentStatus.Onboarding, 88),
-            new Employee("SC-1006", "Ivan Castillo", operations.Id, "Coordinador de Logistica", "Matanzas", new DateOnly(2022, 5, 18), EmploymentStatus.Active, 73));
-
-        await dbContext.Positions.AddRangeAsync(
-            new Position("Especialista de Compensacion", talent.Id, "Habana", PositionStatus.Interviewing, 7, new DateOnly(2026, 7, 15)),
-            new Position("Ingeniero DevOps", technology.Id, "Remoto", PositionStatus.Open, 11, new DateOnly(2026, 8, 1)),
-            new Position("Analista Financiero", finance.Id, "Habana", PositionStatus.Offer, 3, new DateOnly(2026, 7, 1)),
-            new Position("Jefe de Almacen", operations.Id, "Santiago", PositionStatus.Open, 5, new DateOnly(2026, 7, 22)));
-
+        var company = new OrgCompany(
+            group.Id,
+            "SiteCorp MIPYME",
+            "Empresa demo de servicios de capital humano.",
+            new Address("Calle Principal", "101", "Habana", "La Habana", "10400"));
+        await dbContext.OrganizationCompanies.AddAsync(company);
         await dbContext.SaveChangesAsync();
 
-        var rafael = await dbContext.Employees.SingleAsync(employee => employee.EmployeeNumber == "SC-1002");
-        var camila = await dbContext.Employees.SingleAsync(employee => employee.EmployeeNumber == "SC-1003");
-        var ivan = await dbContext.Employees.SingleAsync(employee => employee.EmployeeNumber == "SC-1006");
-
-        var camilaLeave = LeaveRequest.Create(camila.Id, new DateOnly(2026, 6, 10), new DateOnly(2026, 6, 14), "Asuntos medicos");
-        camilaLeave.Approve();
-
-        await dbContext.LeaveRequests.AddRangeAsync(
-            LeaveRequest.Create(rafael.Id, new DateOnly(2026, 6, 18), new DateOnly(2026, 6, 21), "Vacaciones"),
-            camilaLeave,
-            LeaveRequest.Create(ivan.Id, new DateOnly(2026, 7, 4), new DateOnly(2026, 7, 6), "Tramites personales"));
-
+        var unit = new BusinessUnit(
+            company.Id,
+            "Servicios de Capital Humano",
+            "Unidad operativa de Recursos Humanos.",
+            new Address("Calle Principal", "101", "Habana", "La Habana", "10400"));
+        await dbContext.BusinessUnits.AddAsync(unit);
         await dbContext.SaveChangesAsync();
+
+        var position = new StaffingPosition(
+            "HR-ESP",
+            "Especialista de Recursos Humanos",
+            "Gestion operativa de capital humano para clientes MIPYME.",
+            "Tecnico");
+        await dbContext.StaffingPositions.AddAsync(position);
+        await dbContext.SaveChangesAsync();
+
+        var template = new JobTemplate(unit.Id, university.Id, new DateOnly(2026, 1, 1), "Direccion General");
+        await dbContext.JobTemplates.AddAsync(template);
+        await dbContext.SaveChangesAsync();
+
+        var templatePosition = new JobTemplatePosition(
+            template.Id,
+            position.Id,
+            new VacancyInfo(totalVacancies: 2, filledVacancies: 0, baseSalary: 45000, salaryCategory: "CAT-TECNICO"));
+        await dbContext.JobTemplatePositions.AddAsync(templatePosition);
+        await dbContext.SaveChangesAsync();
+
+        var person = new Person(
+            new FullName("Laura", "Benitez"),
+            new NationalId("SC-DEMO-1001"),
+            new DateOnly(1992, 3, 12),
+            new Address("Avenida Central", "44", "Habana", "La Habana", null),
+            numberOfChildren: 1,
+            defenseSituation: "No aplica",
+            preEmploymentCheck: true,
+            completedDegree: "Licenciatura en Psicologia",
+            hasCriminalRecord: false,
+            hasEmploymentContract: true,
+            disciplinaryMeasures: null,
+            university.Id,
+            married.Id,
+            female.Id,
+            skinColor.Id,
+            affiliation.Id,
+            employmentType.Id,
+            license.Id,
+            retireeStatus.Id,
+            new PhysicalData(168, 62, "M", "M", "38"));
+        await dbContext.Persons.AddAsync(person);
+        await dbContext.SaveChangesAsync();
+
+        templatePosition.OccupyVacancy();
+        await dbContext.EmploymentHistories.AddAsync(new EmploymentHistory(
+            person.Id,
+            unit.Id,
+            position.Id,
+            templatePosition.Id,
+            new DateOnly(2026, 6, 1),
+            "Contratacion inicial de prueba."));
+        await dbContext.SaveChangesAsync();
+    }
+
+    private static async Task EnsureCatalogAsync<TCatalog>(
+        DbSet<TCatalog> dbSet,
+        TCatalog item,
+        Func<TCatalog, string> codeSelector)
+        where TCatalog : CatalogItem
+    {
+        var code = codeSelector(item);
+
+        if (!await dbSet.AnyAsync(existing => existing.Code == code))
+        {
+            await dbSet.AddAsync(item);
+        }
     }
 }

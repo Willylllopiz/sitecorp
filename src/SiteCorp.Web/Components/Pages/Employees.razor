@@ -1,83 +1,457 @@
 @page "/employees"
+@page "/people"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject HumanResourcesViewService HrService
+@inject HumanResourcesApiClient HrClient
 
 <PageTitle>SiteCorp | Personas</PageTitle>
 
-@if (_snapshot is null)
+@if (_isLoading)
 {
     <section class="loading-panel">
         <div class="loader"></div>
-        <p>Cargando colaboradores...</p>
+        <p>Cargando personas y catalogos...</p>
     </section>
 }
 else
 {
     <section class="page-header compact">
         <div>
-            <p class="eyebrow">Directorio</p>
+            <p class="eyebrow">Capital humano</p>
             <h1>Personas</h1>
-            <p class="subtitle">Vista base para seguimiento de estado, rol y engagement.</p>
+            <p class="subtitle">Registro inicial de personas naturales antes de asociarlas a una entidad por contratacion.</p>
+        </div>
+        <div class="header-actions">
+            <button class="action-button secondary" type="button" @onclick="LoadAsync">Actualizar</button>
         </div>
     </section>
 
-    <section class="panel table-panel">
-        <table>
-            <thead>
-                <tr>
-                    <th>Codigo</th>
-                    <th>Nombre</th>
-                    <th>Departamento</th>
-                    <th>Puesto</th>
-                    <th>Ubicacion</th>
-                    <th>Estado</th>
-                    <th>Engagement</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var employee in _snapshot.Employees)
-                {
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="@_messageCss">@_message</div>
+    }
+
+    <section class="work-grid">
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Nueva persona</p>
+                    <h2>Datos base</h2>
+                </div>
+            </div>
+
+            <form class="form-grid" @onsubmit="SavePersonAsync" @onsubmit:preventDefault>
+                <label>
+                    Nombres
+                    <input @bind="_form.FirstName" required maxlength="120" />
+                </label>
+                <label>
+                    Apellidos
+                    <input @bind="_form.LastName" required maxlength="120" />
+                </label>
+                <label>
+                    Identificador nacional
+                    <input @bind="_form.NationalId" required maxlength="40" />
+                </label>
+                <label>
+                    Fecha de nacimiento
+                    <input type="date" @bind="_form.BirthDate" required />
+                </label>
+                <label>
+                    Nivel educacional
+                    <select @bind="_form.EducationLevelId" required>
+                        @foreach (var item in _catalogs.EducationLevels)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Estado civil
+                    <select @bind="_form.MaritalStatusId" required>
+                        @foreach (var item in _catalogs.MaritalStatuses)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Genero
+                    <select @bind="_form.GenderId" required>
+                        @foreach (var item in _catalogs.Genders)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Color de piel
+                    <select @bind="_form.SkinColorId" required>
+                        @foreach (var item in _catalogs.SkinColors)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Afiliacion politica
+                    <select @bind="_form.PoliticalAffiliationId" required>
+                        @foreach (var item in _catalogs.PoliticalAffiliations)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Tipo de empleo
+                    <select @bind="_form.EmploymentTypeId" required>
+                        @foreach (var item in _catalogs.EmploymentTypes)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Licencia de conduccion
+                    <select @bind="_form.DrivingLicenseCategoryId">
+                        <option value="@Guid.Empty">No aplica</option>
+                        @foreach (var item in _catalogs.DrivingLicenseCategories)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Jubilado / recontratado
+                    <select @bind="_form.RetireeRehireStatusId" required>
+                        @foreach (var item in _catalogs.RetireeRehireStatuses)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+
+                <label>
+                    Calle
+                    <input @bind="_form.Street" required maxlength="180" />
+                </label>
+                <label>
+                    Numero
+                    <input @bind="_form.Number" maxlength="40" />
+                </label>
+                <label>
+                    Ciudad
+                    <input @bind="_form.City" required maxlength="120" />
+                </label>
+                <label>
+                    Provincia
+                    <input @bind="_form.Province" required maxlength="120" />
+                </label>
+                <label>
+                    Codigo postal
+                    <input @bind="_form.PostalCode" maxlength="40" />
+                </label>
+                <label>
+                    Hijos
+                    <input type="number" min="0" @bind="_form.NumberOfChildren" />
+                </label>
+                <label>
+                    Estatura
+                    <input type="number" min="0" step="0.01" @bind="_form.Height" />
+                </label>
+                <label>
+                    Peso
+                    <input type="number" min="0" step="0.01" @bind="_form.Weight" />
+                </label>
+                <label>
+                    Talla pantalon
+                    <input @bind="_form.PantsSize" maxlength="30" />
+                </label>
+                <label>
+                    Talla camisa
+                    <input @bind="_form.ShirtSize" maxlength="30" />
+                </label>
+                <label>
+                    Talla calzado
+                    <input @bind="_form.ShoeSize" maxlength="30" />
+                </label>
+                <label>
+                    Situacion defensa
+                    <input @bind="_form.DefenseSituation" maxlength="180" />
+                </label>
+                <label>
+                    Grado terminado
+                    <input @bind="_form.CompletedDegree" maxlength="180" />
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" @bind="_form.PreEmploymentCheck" />
+                    Chequeo pre-empleo
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" @bind="_form.HasEmploymentContract" />
+                    Tiene contrato laboral
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" @bind="_form.HasCriminalRecord" />
+                    Antecedentes penales
+                </label>
+                <label class="span-2">
+                    Medidas disciplinarias
+                    <textarea @bind="_form.DisciplinaryMeasures" rows="3"></textarea>
+                </label>
+
+                <div class="form-actions span-2">
+                    <button class="action-button" type="submit" disabled="@_isSaving">
+                        @(_isSaving ? "Guardando..." : "Guardar persona")
+                    </button>
+                </div>
+            </form>
+        </article>
+
+        <article class="panel table-panel">
+            <table>
+                <thead>
                     <tr>
-                        <td>@employee.EmployeeNumber</td>
-                        <td>
-                            <strong>@employee.FullName</strong>
-                            <span>Ingreso @employee.HireDate.ToString("MMM yyyy")</span>
-                        </td>
-                        <td>@employee.Department</td>
-                        <td>@employee.Position</td>
-                        <td>@employee.Location</td>
-                        <td><span class="@GetStatusClass(employee.Status)">@GetStatusLabel(employee.Status)</span></td>
-                        <td>@employee.EngagementScore%</td>
+                        <th>Persona</th>
+                        <th>Identificador</th>
+                        <th>Nacimiento</th>
+                        <th>Direccion</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach (var person in _people)
+                    {
+                        <tr>
+                            <td><strong>@person.FullName</strong></td>
+                            <td>@person.NationalId</td>
+                            <td>@person.BirthDate.ToString("yyyy-MM-dd")</td>
+                            <td>@person.Address</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </article>
     </section>
 }
 
 @code {
-    private HumanResourcesSnapshot? _snapshot;
+    private readonly PersonForm _form = new();
+    private HumanResourcesCatalogsResponse _catalogs = EmptyCatalogs();
+    private IReadOnlyList<PersonResponse> _people = [];
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _message;
+    private string _messageCss = "alert-success";
 
     protected override async Task OnInitializedAsync()
     {
-        _snapshot = await HrService.GetSnapshotAsync();
+        await LoadAsync();
     }
 
-    private static string GetStatusClass(EmploymentStatus status) => status switch
+    private async Task LoadAsync()
     {
-        EmploymentStatus.Active => "pill success",
-        EmploymentStatus.Onboarding => "pill info",
-        EmploymentStatus.OnLeave => "pill warning",
-        _ => "pill muted"
-    };
+        _isLoading = true;
+        _message = null;
 
-    private static string GetStatusLabel(EmploymentStatus status) => status switch
+        try
+        {
+            _catalogs = await HrClient.GetCatalogsAsync();
+            _people = await HrClient.GetPeopleAsync();
+            ApplyCatalogDefaults();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SavePersonAsync()
     {
-        EmploymentStatus.Active => "Activo",
-        EmploymentStatus.Onboarding => "Onboarding",
-        EmploymentStatus.OnLeave => "Licencia",
-        EmploymentStatus.Offboarding => "Salida",
-        _ => status.ToString()
-    };
+        _isSaving = true;
+        _message = null;
+
+        try
+        {
+            var request = new CreatePersonRequest(
+                _form.FirstName,
+                _form.LastName,
+                _form.NationalId,
+                DateOnly.FromDateTime(_form.BirthDate),
+                BuildAddress(),
+                _form.NumberOfChildren,
+                EmptyToNull(_form.DefenseSituation),
+                _form.PreEmploymentCheck,
+                EmptyToNull(_form.CompletedDegree),
+                _form.HasCriminalRecord,
+                _form.HasEmploymentContract,
+                EmptyToNull(_form.DisciplinaryMeasures),
+                _form.EducationLevelId,
+                _form.MaritalStatusId,
+                _form.GenderId,
+                _form.SkinColorId,
+                _form.PoliticalAffiliationId,
+                _form.EmploymentTypeId,
+                _form.DrivingLicenseCategoryId == Guid.Empty ? null : _form.DrivingLicenseCategoryId,
+                _form.RetireeRehireStatusId,
+                new PhysicalDataDto(
+                    _form.Height,
+                    _form.Weight,
+                    EmptyToNull(_form.PantsSize),
+                    EmptyToNull(_form.ShirtSize),
+                    EmptyToNull(_form.ShoeSize)));
+
+            _ = await HrClient.CreatePersonAsync(request);
+            _form.ResetAfterSave();
+            ApplyCatalogDefaults();
+            _people = await HrClient.GetPeopleAsync();
+            ShowSuccess("Persona registrada correctamente.");
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void ApplyCatalogDefaults()
+    {
+        _form.EducationLevelId = FirstId(_catalogs.EducationLevels, _form.EducationLevelId);
+        _form.MaritalStatusId = FirstId(_catalogs.MaritalStatuses, _form.MaritalStatusId);
+        _form.GenderId = FirstId(_catalogs.Genders, _form.GenderId);
+        _form.SkinColorId = FirstId(_catalogs.SkinColors, _form.SkinColorId);
+        _form.PoliticalAffiliationId = FirstId(_catalogs.PoliticalAffiliations, _form.PoliticalAffiliationId);
+        _form.EmploymentTypeId = FirstId(_catalogs.EmploymentTypes, _form.EmploymentTypeId);
+        _form.RetireeRehireStatusId = FirstId(_catalogs.RetireeRehireStatuses, _form.RetireeRehireStatusId);
+    }
+
+    private AddressDto BuildAddress()
+    {
+        return new AddressDto(
+            _form.Street,
+            EmptyToNull(_form.Number),
+            _form.City,
+            _form.Province,
+            EmptyToNull(_form.PostalCode));
+    }
+
+    private void ShowSuccess(string message)
+    {
+        _message = message;
+        _messageCss = "alert-success";
+    }
+
+    private void ShowError(string message)
+    {
+        _message = message;
+        _messageCss = "alert-error";
+    }
+
+    private static Guid FirstId(IReadOnlyList<CatalogItemResponse> items, Guid current)
+    {
+        return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
+    }
+
+    private static string? EmptyToNull(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static HumanResourcesCatalogsResponse EmptyCatalogs()
+    {
+        return new HumanResourcesCatalogsResponse([], [], [], [], [], [], [], []);
+    }
+
+    private sealed class PersonForm
+    {
+        public string FirstName { get; set; } = string.Empty;
+
+        public string LastName { get; set; } = string.Empty;
+
+        public string NationalId { get; set; } = string.Empty;
+
+        public DateTime BirthDate { get; set; } = new(1990, 1, 1);
+
+        public string Street { get; set; } = string.Empty;
+
+        public string? Number { get; set; }
+
+        public string City { get; set; } = string.Empty;
+
+        public string Province { get; set; } = string.Empty;
+
+        public string? PostalCode { get; set; }
+
+        public int NumberOfChildren { get; set; }
+
+        public string? DefenseSituation { get; set; }
+
+        public bool PreEmploymentCheck { get; set; } = true;
+
+        public string? CompletedDegree { get; set; }
+
+        public bool HasCriminalRecord { get; set; }
+
+        public bool HasEmploymentContract { get; set; } = true;
+
+        public string? DisciplinaryMeasures { get; set; }
+
+        public Guid EducationLevelId { get; set; }
+
+        public Guid MaritalStatusId { get; set; }
+
+        public Guid GenderId { get; set; }
+
+        public Guid SkinColorId { get; set; }
+
+        public Guid PoliticalAffiliationId { get; set; }
+
+        public Guid EmploymentTypeId { get; set; }
+
+        public Guid DrivingLicenseCategoryId { get; set; }
+
+        public Guid RetireeRehireStatusId { get; set; }
+
+        public decimal Height { get; set; } = 170;
+
+        public decimal Weight { get; set; } = 70;
+
+        public string? PantsSize { get; set; }
+
+        public string? ShirtSize { get; set; }
+
+        public string? ShoeSize { get; set; }
+
+        public void ResetAfterSave()
+        {
+            FirstName = string.Empty;
+            LastName = string.Empty;
+            NationalId = string.Empty;
+            BirthDate = new DateTime(1990, 1, 1);
+            Street = string.Empty;
+            Number = null;
+            City = string.Empty;
+            Province = string.Empty;
+            PostalCode = null;
+            NumberOfChildren = 0;
+            DefenseSituation = null;
+            PreEmploymentCheck = true;
+            CompletedDegree = null;
+            HasCriminalRecord = false;
+            HasEmploymentContract = true;
+            DisciplinaryMeasures = null;
+            DrivingLicenseCategoryId = Guid.Empty;
+            Height = 170;
+            Weight = 70;
+            PantsSize = null;
+            ShirtSize = null;
+            ShoeSize = null;
+        }
+    }
 }

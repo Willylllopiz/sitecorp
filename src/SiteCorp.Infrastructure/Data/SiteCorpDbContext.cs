@@ -1,12 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using SiteCorp.Domain.Authentication;
-using SiteCorp.Domain.HumanResources;
+using SiteCorp.Domain.HumanResources.Catalogs;
+using SiteCorp.Domain.HumanResources.Organization;
+using SiteCorp.Domain.HumanResources.People;
+using SiteCorp.Domain.HumanResources.Staffing;
+using AuthCompany = SiteCorp.Domain.Authentication.Company;
+using OrgCompany = SiteCorp.Domain.HumanResources.Organization.Company;
+using StaffingPosition = SiteCorp.Domain.HumanResources.Staffing.Position;
 
 namespace SiteCorp.Infrastructure.Data;
 
 public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> options) : DbContext(options)
 {
-    public DbSet<Company> Companies => Set<Company>();
+    public DbSet<AuthCompany> Companies => Set<AuthCompany>();
 
     public DbSet<User> Users => Set<User>();
 
@@ -20,17 +26,54 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
-    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<OrganizationEntity> OrganizationEntities => Set<OrganizationEntity>();
 
-    public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<BusinessGroup> BusinessGroups => Set<BusinessGroup>();
 
-    public DbSet<Position> Positions => Set<Position>();
+    public DbSet<OrgCompany> OrganizationCompanies => Set<OrgCompany>();
 
-    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<BusinessUnit> BusinessUnits => Set<BusinessUnit>();
+
+    public DbSet<Gender> Genders => Set<Gender>();
+
+    public DbSet<SkinColor> SkinColors => Set<SkinColor>();
+
+    public DbSet<PoliticalAffiliation> PoliticalAffiliations => Set<PoliticalAffiliation>();
+
+    public DbSet<MaritalStatus> MaritalStatuses => Set<MaritalStatus>();
+
+    public DbSet<EducationLevel> EducationLevels => Set<EducationLevel>();
+
+    public DbSet<EmploymentType> EmploymentTypes => Set<EmploymentType>();
+
+    public DbSet<DrivingLicenseCategory> DrivingLicenseCategories => Set<DrivingLicenseCategory>();
+
+    public DbSet<RetireeRehireStatus> RetireeRehireStatuses => Set<RetireeRehireStatus>();
+
+    public DbSet<Person> Persons => Set<Person>();
+
+    public DbSet<Document> Documents => Set<Document>();
+
+    public DbSet<EmploymentHistory> EmploymentHistories => Set<EmploymentHistory>();
+
+    public DbSet<StaffingPosition> StaffingPositions => Set<StaffingPosition>();
+
+    public DbSet<JobTemplate> JobTemplates => Set<JobTemplate>();
+
+    public DbSet<JobTemplatePosition> JobTemplatePositions => Set<JobTemplatePosition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Company>(builder =>
+        ConfigureAuthentication(modelBuilder);
+        ConfigureOrganization(modelBuilder);
+        ConfigureCatalogs(modelBuilder);
+        ConfigurePeople(modelBuilder);
+        ConfigureStaffing(modelBuilder);
+    }
+
+    private static void ConfigureAuthentication(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AuthCompany>(builder =>
         {
             builder.ToTable("Companies", "auth");
             builder.HasKey(company => company.Id);
@@ -65,7 +108,7 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
             builder.Property(user => user.CreatedAt).IsRequired();
             builder.Ignore(user => user.FullName);
 
-            builder.HasOne<Company>()
+            builder.HasOne<AuthCompany>()
                 .WithMany()
                 .HasForeignKey(user => user.CompanyId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -82,7 +125,7 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
             builder.Property(role => role.IsActive).HasDefaultValue(true);
             builder.Property(role => role.CreatedAt).IsRequired();
 
-            builder.HasOne<Company>()
+            builder.HasOne<AuthCompany>()
                 .WithMany()
                 .HasForeignKey(role => role.CompanyId)
                 .OnDelete(DeleteBehavior.Restrict);
@@ -162,57 +205,257 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
                 .HasForeignKey(refreshToken => refreshToken.ReplacedByTokenId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
+    }
 
-        modelBuilder.Entity<Department>(builder =>
+    private static void ConfigureOrganization(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<OrganizationEntity>(builder =>
         {
-            builder.ToTable("Departments");
-            builder.HasKey(department => department.Id);
-            builder.Property(department => department.Name).HasMaxLength(120).IsRequired();
-            builder.Property(department => department.ManagerName).HasMaxLength(160).IsRequired();
+            builder.ToTable("Entities", "org");
+            builder.HasKey(entity => entity.Id);
+            builder.Property(entity => entity.Name).HasMaxLength(160).IsRequired();
+            builder.Property(entity => entity.Description).HasMaxLength(320);
+            builder.Property(entity => entity.EntityType).HasConversion<string>().HasMaxLength(40).IsRequired();
+            builder.Property(entity => entity.CreatedDate).IsRequired();
+            builder.Property(entity => entity.IsActive).HasDefaultValue(true);
         });
 
-        modelBuilder.Entity<Employee>(builder =>
+        modelBuilder.Entity<BusinessGroup>(builder =>
         {
-            builder.ToTable("Employees");
-            builder.HasKey(employee => employee.Id);
-            builder.HasIndex(employee => employee.EmployeeNumber).IsUnique();
-            builder.Property(employee => employee.EmployeeNumber).HasMaxLength(24).IsRequired();
-            builder.Property(employee => employee.FullName).HasMaxLength(160).IsRequired();
-            builder.Property(employee => employee.Position).HasMaxLength(140).IsRequired();
-            builder.Property(employee => employee.Location).HasMaxLength(100).IsRequired();
-            builder.Property(employee => employee.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.ToTable("BusinessGroups", "org");
+        });
 
-            builder.HasOne<Department>()
+        modelBuilder.Entity<OrgCompany>(builder =>
+        {
+            builder.ToTable("Companies", "org");
+            builder.HasIndex(company => company.BusinessGroupId);
+
+            builder.OwnsOne(company => company.Address, owned =>
+            {
+                owned.Property(address => address.Street).HasColumnName("AddressStreet").HasMaxLength(240).IsRequired();
+                owned.Property(address => address.Number).HasColumnName("AddressNumber").HasMaxLength(40);
+                owned.Property(address => address.City).HasColumnName("AddressCity").HasMaxLength(120).IsRequired();
+                owned.Property(address => address.Province).HasColumnName("AddressProvince").HasMaxLength(120).IsRequired();
+                owned.Property(address => address.PostalCode).HasColumnName("AddressPostalCode").HasMaxLength(20);
+            });
+
+            builder.Navigation(company => company.Address).IsRequired();
+
+            builder.HasOne<BusinessGroup>()
                 .WithMany()
-                .HasForeignKey(employee => employee.DepartmentId)
+                .HasForeignKey(company => company.BusinessGroupId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
-        modelBuilder.Entity<Position>(builder =>
+        modelBuilder.Entity<BusinessUnit>(builder =>
         {
-            builder.ToTable("Positions");
+            builder.ToTable("BusinessUnits", "org");
+            builder.HasIndex(unit => unit.CompanyId);
+
+            builder.OwnsOne(unit => unit.Address, owned =>
+            {
+                owned.Property(address => address.Street).HasColumnName("AddressStreet").HasMaxLength(240).IsRequired();
+                owned.Property(address => address.Number).HasColumnName("AddressNumber").HasMaxLength(40);
+                owned.Property(address => address.City).HasColumnName("AddressCity").HasMaxLength(120).IsRequired();
+                owned.Property(address => address.Province).HasColumnName("AddressProvince").HasMaxLength(120).IsRequired();
+                owned.Property(address => address.PostalCode).HasColumnName("AddressPostalCode").HasMaxLength(20);
+            });
+
+            builder.Navigation(unit => unit.Address).IsRequired();
+
+            builder.HasOne<OrgCompany>()
+                .WithMany()
+                .HasForeignKey(unit => unit.CompanyId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureCatalogs(ModelBuilder modelBuilder)
+    {
+        ConfigureCatalog<Gender>(modelBuilder, "Genders");
+        ConfigureCatalog<SkinColor>(modelBuilder, "SkinColors");
+        ConfigureCatalog<PoliticalAffiliation>(modelBuilder, "PoliticalAffiliations");
+        ConfigureCatalog<MaritalStatus>(modelBuilder, "MaritalStatuses");
+        ConfigureCatalog<EmploymentType>(modelBuilder, "EmploymentTypes");
+        ConfigureCatalog<DrivingLicenseCategory>(modelBuilder, "DrivingLicenseCategories");
+        ConfigureCatalog<RetireeRehireStatus>(modelBuilder, "RetireeRehireStatuses");
+
+        modelBuilder.Entity<EducationLevel>(builder =>
+        {
+            builder.ToTable("EducationLevels", "catalog");
+            builder.HasKey(item => item.Id);
+            builder.HasIndex(item => item.Code).IsUnique();
+            builder.Property(item => item.Code).HasMaxLength(40).IsRequired();
+            builder.Property(item => item.Description).HasMaxLength(180).IsRequired();
+            builder.Property(item => item.IsActive).HasDefaultValue(true);
+            builder.Property(item => item.HierarchyLevel).IsRequired();
+        });
+    }
+
+    private static void ConfigureCatalog<TCatalog>(ModelBuilder modelBuilder, string tableName)
+        where TCatalog : CatalogItem
+    {
+        modelBuilder.Entity<TCatalog>(builder =>
+        {
+            builder.ToTable(tableName, "catalog");
+            builder.HasKey(item => item.Id);
+            builder.HasIndex(item => item.Code).IsUnique();
+            builder.Property(item => item.Code).HasMaxLength(40).IsRequired();
+            builder.Property(item => item.Description).HasMaxLength(180).IsRequired();
+            builder.Property(item => item.IsActive).HasDefaultValue(true);
+        });
+    }
+
+    private static void ConfigurePeople(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Person>(builder =>
+        {
+            builder.ToTable("Persons", "hr");
+            builder.HasKey(person => person.Id);
+            builder.Property(person => person.BirthDate).IsRequired();
+            builder.Property(person => person.NumberOfChildren).IsRequired();
+            builder.Property(person => person.DefenseSituation).HasMaxLength(180);
+            builder.Property(person => person.CompletedDegree).HasMaxLength(180);
+            builder.Property(person => person.DisciplinaryMeasures).HasMaxLength(360);
+            builder.Property(person => person.CreatedAt).IsRequired();
+
+            builder.OwnsOne(person => person.FullName, owned =>
+            {
+                owned.Property(name => name.FirstName).HasColumnName("FirstName").HasMaxLength(100).IsRequired();
+                owned.Property(name => name.LastName).HasColumnName("LastName").HasMaxLength(140).IsRequired();
+                owned.Ignore(name => name.Value);
+            });
+
+            builder.OwnsOne(person => person.NationalId, owned =>
+            {
+                owned.HasIndex(nationalId => nationalId.Number).IsUnique();
+                owned.Property(nationalId => nationalId.Number).HasColumnName("NationalId_Number").HasMaxLength(40).IsRequired();
+            });
+
+            builder.OwnsOne(person => person.Address, owned =>
+            {
+                owned.Property(address => address.Street).HasColumnName("AddressStreet").HasMaxLength(240).IsRequired();
+                owned.Property(address => address.Number).HasColumnName("AddressNumber").HasMaxLength(40);
+                owned.Property(address => address.City).HasColumnName("AddressCity").HasMaxLength(120).IsRequired();
+                owned.Property(address => address.Province).HasColumnName("AddressProvince").HasMaxLength(120).IsRequired();
+                owned.Property(address => address.PostalCode).HasColumnName("AddressPostalCode").HasMaxLength(20);
+            });
+
+            builder.OwnsOne(person => person.PhysicalData, owned =>
+            {
+                owned.Property(data => data.Height).HasColumnName("Height").HasPrecision(9, 2);
+                owned.Property(data => data.Weight).HasColumnName("Weight").HasPrecision(9, 2);
+                owned.Property(data => data.PantsSize).HasColumnName("PantsSize").HasMaxLength(40);
+                owned.Property(data => data.ShirtSize).HasColumnName("ShirtSize").HasMaxLength(40);
+                owned.Property(data => data.ShoeSize).HasColumnName("ShoeSize").HasMaxLength(40);
+            });
+
+            builder.Navigation(person => person.FullName).IsRequired();
+            builder.Navigation(person => person.NationalId).IsRequired();
+            builder.Navigation(person => person.Address).IsRequired();
+            builder.Navigation(person => person.PhysicalData).IsRequired();
+
+            builder.HasOne<EducationLevel>().WithMany().HasForeignKey(person => person.EducationLevelId).OnDelete(DeleteBehavior.NoAction);
+            builder.HasOne<MaritalStatus>().WithMany().HasForeignKey(person => person.MaritalStatusId).OnDelete(DeleteBehavior.NoAction);
+            builder.HasOne<Gender>().WithMany().HasForeignKey(person => person.GenderId).OnDelete(DeleteBehavior.NoAction);
+            builder.HasOne<SkinColor>().WithMany().HasForeignKey(person => person.SkinColorId).OnDelete(DeleteBehavior.NoAction);
+            builder.HasOne<PoliticalAffiliation>().WithMany().HasForeignKey(person => person.PoliticalAffiliationId).OnDelete(DeleteBehavior.NoAction);
+            builder.HasOne<EmploymentType>().WithMany().HasForeignKey(person => person.EmploymentTypeId).OnDelete(DeleteBehavior.NoAction);
+            builder.HasOne<DrivingLicenseCategory>().WithMany().HasForeignKey(person => person.DrivingLicenseCategoryId).OnDelete(DeleteBehavior.NoAction);
+            builder.HasOne<RetireeRehireStatus>().WithMany().HasForeignKey(person => person.RetireeRehireStatusId).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<Document>(builder =>
+        {
+            builder.ToTable("Documents", "hr");
+            builder.HasKey(document => document.Id);
+            builder.HasIndex(document => document.PersonId);
+            builder.Property(document => document.DocumentType).HasMaxLength(80).IsRequired();
+            builder.Property(document => document.FilePath).HasMaxLength(500).IsRequired();
+            builder.Property(document => document.UploadDate).IsRequired();
+            builder.Property(document => document.IsValid).HasDefaultValue(true);
+
+            builder.HasOne<Person>()
+                .WithMany()
+                .HasForeignKey(document => document.PersonId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EmploymentHistory>(builder =>
+        {
+            builder.ToTable("EmploymentHistory", "hr");
+            builder.HasKey(history => history.Id);
+            builder.HasIndex(history => new { history.PersonId, history.EntityId, history.PositionId })
+                .IsUnique()
+                .HasFilter("[IsActive] = 1");
+            builder.Property(history => history.ExitReason).HasMaxLength(240);
+            builder.Property(history => history.Notes).HasMaxLength(500);
+            builder.Property(history => history.IsActive).HasDefaultValue(true);
+            builder.Property(history => history.CreatedAt).IsRequired();
+
+            builder.OwnsOne(history => history.Period, owned =>
+            {
+                owned.Property(period => period.StartDate).HasColumnName("StartDate").IsRequired();
+                owned.Property(period => period.EndDate).HasColumnName("EndDate");
+            });
+
+            builder.Navigation(history => history.Period).IsRequired();
+
+            builder.HasOne<Person>().WithMany().HasForeignKey(history => history.PersonId).OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne<OrganizationEntity>().WithMany().HasForeignKey(history => history.EntityId).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne<StaffingPosition>().WithMany().HasForeignKey(history => history.PositionId).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne<JobTemplatePosition>().WithMany().HasForeignKey(history => history.JobTemplatePositionId).OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureStaffing(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<StaffingPosition>(builder =>
+        {
+            builder.ToTable("Positions", "hr");
             builder.HasKey(position => position.Id);
-            builder.Property(position => position.Title).HasMaxLength(140).IsRequired();
-            builder.Property(position => position.Location).HasMaxLength(100).IsRequired();
-            builder.Property(position => position.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
-
-            builder.HasOne<Department>()
-                .WithMany()
-                .HasForeignKey(position => position.DepartmentId)
-                .OnDelete(DeleteBehavior.Restrict);
+            builder.HasIndex(position => position.Code).IsUnique();
+            builder.Property(position => position.Code).HasMaxLength(40).IsRequired();
+            builder.Property(position => position.Name).HasMaxLength(140).IsRequired();
+            builder.Property(position => position.Description).HasMaxLength(320);
+            builder.Property(position => position.Category).HasMaxLength(100).IsRequired();
+            builder.Property(position => position.IsActive).HasDefaultValue(true);
         });
 
-        modelBuilder.Entity<LeaveRequest>(builder =>
+        modelBuilder.Entity<JobTemplate>(builder =>
         {
-            builder.ToTable("LeaveRequests");
-            builder.HasKey(request => request.Id);
-            builder.Property(request => request.Reason).HasMaxLength(240).IsRequired();
-            builder.Property(request => request.Status).HasConversion<string>().HasMaxLength(32).IsRequired();
+            builder.ToTable("JobTemplates", "hr");
+            builder.HasKey(template => template.Id);
+            builder.HasIndex(template => template.EntityId)
+                .IsUnique()
+                .HasFilter("[IsActive] = 1");
+            builder.Property(template => template.ApprovedBy).HasMaxLength(160).IsRequired();
+            builder.Property(template => template.CreatedAt).IsRequired();
+            builder.Property(template => template.IsActive).HasDefaultValue(true);
 
-            builder.HasOne<Employee>()
-                .WithMany()
-                .HasForeignKey(request => request.EmployeeId)
-                .OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne<OrganizationEntity>().WithMany().HasForeignKey(template => template.EntityId).OnDelete(DeleteBehavior.Restrict);
+            builder.HasOne<EducationLevel>().WithMany().HasForeignKey(template => template.EducationLevelId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<JobTemplatePosition>(builder =>
+        {
+            builder.ToTable("JobTemplatePositions", "hr");
+            builder.HasKey(position => position.Id);
+            builder.HasIndex(position => new { position.JobTemplateId, position.PositionId }).IsUnique();
+            builder.Property(position => position.RowVersion).IsRowVersion();
+
+            builder.OwnsOne(position => position.Vacancy, owned =>
+            {
+                owned.Property(vacancy => vacancy.TotalVacancies).HasColumnName("TotalVacancies").IsRequired();
+                owned.Property(vacancy => vacancy.FilledVacancies).HasColumnName("FilledVacancies").IsRequired();
+                owned.Property(vacancy => vacancy.BaseSalary).HasColumnName("BaseSalary").HasPrecision(18, 2).IsRequired();
+                owned.Property(vacancy => vacancy.SalaryCategory).HasColumnName("SalaryCategory").HasMaxLength(80).IsRequired();
+            });
+
+            builder.Navigation(position => position.Vacancy).IsRequired();
+
+            builder.HasOne<JobTemplate>().WithMany().HasForeignKey(position => position.JobTemplateId).OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne<StaffingPosition>().WithMany().HasForeignKey(position => position.PositionId).OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

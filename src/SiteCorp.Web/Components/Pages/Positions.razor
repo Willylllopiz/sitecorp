@@ -1,68 +1,556 @@
 @page "/positions"
+@page "/hiring"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@inject HumanResourcesViewService HrService
+@inject HumanResourcesApiClient HrClient
 
-<PageTitle>SiteCorp | Vacantes</PageTitle>
+<PageTitle>SiteCorp | Contratacion</PageTitle>
 
-@if (_snapshot is null)
+@if (_isLoading)
 {
     <section class="loading-panel">
         <div class="loader"></div>
-        <p>Cargando vacantes...</p>
+        <p>Cargando contratacion...</p>
     </section>
 }
 else
 {
     <section class="page-header compact">
         <div>
-            <p class="eyebrow">Reclutamiento</p>
-            <h1>Vacantes</h1>
-            <p class="subtitle">Pipeline inicial para puestos abiertos y fechas objetivo.</p>
+            <p class="eyebrow">Plantilla aprobada</p>
+            <h1>Contratacion</h1>
+            <p class="subtitle">Crea cargos, define plazas por entidad y registra nuevas relaciones laborales.</p>
+        </div>
+        <div class="header-actions">
+            <button class="action-button secondary" type="button" @onclick="LoadAsync">Actualizar</button>
         </div>
     </section>
 
-    <section class="position-grid">
-        @foreach (var position in _snapshot.Positions)
-        {
-            <article class="position-card">
-                <div class="position-card-header">
-                    <span class="@GetStatusClass(position.Status)">@GetStatusLabel(position.Status)</span>
-                    <span>@position.Candidates candidatos</span>
+    @if (!string.IsNullOrWhiteSpace(_message))
+    {
+        <div class="@_messageCss">@_message</div>
+    }
+
+    <section class="work-grid three">
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Catalogo interno</p>
+                    <h2>Cargo</h2>
                 </div>
-                <h2>@position.Title</h2>
-                <p>@position.Department · @position.Location</p>
-                <div class="position-footer">
-                    <span>Inicio objetivo</span>
-                    <strong>@position.TargetStartDate.ToString("MMM d, yyyy")</strong>
+            </div>
+
+            <form class="form-grid single" @onsubmit="SavePositionAsync" @onsubmit:preventDefault>
+                <label>
+                    Codigo
+                    <input @bind="_positionForm.Code" required maxlength="40" />
+                </label>
+                <label>
+                    Nombre
+                    <input @bind="_positionForm.Name" required maxlength="180" />
+                </label>
+                <label>
+                    Categoria
+                    <input @bind="_positionForm.Category" required maxlength="80" />
+                </label>
+                <label>
+                    Descripcion
+                    <textarea @bind="_positionForm.Description" rows="3"></textarea>
+                </label>
+                <div class="form-actions">
+                    <button class="action-button" type="submit" disabled="@_isSaving">
+                        Guardar cargo
+                    </button>
                 </div>
-            </article>
-        }
+            </form>
+        </article>
+
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Entidad</p>
+                    <h2>Plantilla</h2>
+                </div>
+            </div>
+
+            <form class="form-grid single" @onsubmit="SaveTemplateAsync" @onsubmit:preventDefault>
+                <label>
+                    Entidad
+                    <select @bind="_templateForm.EntityId" required>
+                        <option value="@Guid.Empty">Selecciona entidad</option>
+                        @foreach (var entity in _entities)
+                        {
+                            <option value="@entity.Id">@entity.Name</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Nivel educacional
+                    <select @bind="_templateForm.EducationLevelId" required>
+                        @foreach (var item in _catalogs.EducationLevels)
+                        {
+                            <option value="@item.Id">@item.Description</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Fecha efectiva
+                    <input type="date" @bind="_templateForm.EffectiveDate" required />
+                </label>
+                <label>
+                    Aprobado por
+                    <input @bind="_templateForm.ApprovedBy" required maxlength="160" />
+                </label>
+                <div class="form-actions">
+                    <button class="action-button" type="submit" disabled="@_isSaving">
+                        Crear plantilla
+                    </button>
+                </div>
+            </form>
+        </article>
+
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Plazas</p>
+                    <h2>Agregar cargo</h2>
+                </div>
+            </div>
+
+            <form class="form-grid single" @onsubmit="SaveTemplatePositionAsync" @onsubmit:preventDefault>
+                <label>
+                    Plantilla
+                    <select @bind="_templatePositionForm.JobTemplateId" required>
+                        <option value="@Guid.Empty">Selecciona plantilla</option>
+                        @foreach (var template in _templates)
+                        {
+                            <option value="@template.Id">@TemplateLabel(template)</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Cargo
+                    <select @bind="_templatePositionForm.PositionId" required>
+                        <option value="@Guid.Empty">Selecciona cargo</option>
+                        @foreach (var position in _positions)
+                        {
+                            <option value="@position.Id">@position.Name</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Plazas totales
+                    <input type="number" min="1" @bind="_templatePositionForm.TotalVacancies" />
+                </label>
+                <label>
+                    Plazas ocupadas
+                    <input type="number" min="0" @bind="_templatePositionForm.FilledVacancies" />
+                </label>
+                <label>
+                    Salario base
+                    <input type="number" min="0" step="0.01" @bind="_templatePositionForm.BaseSalary" />
+                </label>
+                <label>
+                    Categoria salarial
+                    <input @bind="_templatePositionForm.SalaryCategory" required maxlength="80" />
+                </label>
+                <div class="form-actions">
+                    <button class="action-button" type="submit" disabled="@_isSaving">
+                        Agregar plaza
+                    </button>
+                </div>
+            </form>
+        </article>
+    </section>
+
+    <section class="work-grid">
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Alta laboral</p>
+                    <h2>Contratar persona</h2>
+                </div>
+            </div>
+
+            <form class="form-grid" @onsubmit="HireAsync" @onsubmit:preventDefault>
+                <label>
+                    Persona
+                    <select @bind="_hireForm.PersonId" required>
+                        <option value="@Guid.Empty">Selecciona persona</option>
+                        @foreach (var person in _people)
+                        {
+                            <option value="@person.Id">@person.FullName</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Entidad
+                    <select @bind="_hireForm.EntityId" required>
+                        <option value="@Guid.Empty">Selecciona entidad</option>
+                        @foreach (var entity in _entities)
+                        {
+                            <option value="@entity.Id">@entity.Name</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Cargo
+                    <select @bind="_hireForm.PositionId" required>
+                        <option value="@Guid.Empty">Selecciona cargo</option>
+                        @foreach (var position in _positions)
+                        {
+                            <option value="@position.Id">@position.Name</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Fecha inicio
+                    <input type="date" @bind="_hireForm.StartDate" required />
+                </label>
+                <label class="span-2">
+                    Notas
+                    <textarea @bind="_hireForm.Notes" rows="3"></textarea>
+                </label>
+                <div class="form-actions span-2">
+                    <button class="action-button" type="submit" disabled="@_isSaving">
+                        Contratar
+                    </button>
+                </div>
+            </form>
+        </article>
+
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Disponibilidad</p>
+                    <h2>Plazas activas</h2>
+                </div>
+            </div>
+
+            <div class="compact-list">
+                @foreach (var templatePosition in _templatePositions)
+                {
+                    <div class="compact-row">
+                        <div>
+                            <strong>@templatePosition.PositionName</strong>
+                            <span>@TemplateEntityLabel(templatePosition.JobTemplateId)</span>
+                        </div>
+                        <div class="right-stack">
+                            <span class="@GetAvailabilityClass(templatePosition)">
+                                @templatePosition.FilledVacancies / @templatePosition.TotalVacancies
+                            </span>
+                            <span>@templatePosition.BaseSalary.ToString("0.##")</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </article>
+    </section>
+
+    <section class="panel table-panel">
+        <table>
+            <thead>
+                <tr>
+                    <th>Persona</th>
+                    <th>Entidad</th>
+                    <th>Cargo</th>
+                    <th>Inicio</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var employment in _employments)
+                {
+                    <tr>
+                        <td><strong>@employment.PersonName</strong></td>
+                        <td>@employment.EntityName</td>
+                        <td>@employment.PositionName</td>
+                        <td>@employment.StartDate.ToString("yyyy-MM-dd")</td>
+                        <td><span class="pill success">Activa</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
     </section>
 }
 
 @code {
-    private HumanResourcesSnapshot? _snapshot;
+    private readonly PositionForm _positionForm = new();
+    private readonly TemplateForm _templateForm = new();
+    private readonly TemplatePositionForm _templatePositionForm = new();
+    private readonly HireForm _hireForm = new();
+    private HumanResourcesCatalogsResponse _catalogs = EmptyCatalogs();
+    private IReadOnlyList<OrganizationEntityResponse> _entities = [];
+    private IReadOnlyList<PersonResponse> _people = [];
+    private IReadOnlyList<StaffingPositionResponse> _positions = [];
+    private IReadOnlyList<JobTemplateResponse> _templates = [];
+    private IReadOnlyList<JobTemplatePositionResponse> _templatePositions = [];
+    private IReadOnlyList<EmploymentResponse> _employments = [];
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _message;
+    private string _messageCss = "alert-success";
 
     protected override async Task OnInitializedAsync()
     {
-        _snapshot = await HrService.GetSnapshotAsync();
+        await LoadAsync();
     }
 
-    private static string GetStatusClass(PositionStatus status) => status switch
+    private async Task LoadAsync()
     {
-        PositionStatus.Open => "pill info",
-        PositionStatus.Interviewing => "pill warning",
-        PositionStatus.Offer => "pill success",
-        _ => "pill muted"
-    };
+        _isLoading = true;
+        _message = null;
 
-    private static string GetStatusLabel(PositionStatus status) => status switch
+        try
+        {
+            _catalogs = await HrClient.GetCatalogsAsync();
+            _entities = await HrClient.GetOrganizationEntitiesAsync();
+            _people = await HrClient.GetPeopleAsync();
+            _positions = await HrClient.GetStaffingPositionsAsync();
+            _templates = await HrClient.GetJobTemplatesAsync();
+            _templatePositions = await HrClient.GetJobTemplatePositionsAsync();
+            _employments = await HrClient.GetEmploymentsAsync();
+            ApplyDefaults();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SavePositionAsync()
     {
-        PositionStatus.Open => "Abierta",
-        PositionStatus.Interviewing => "Entrevistas",
-        PositionStatus.Offer => "Oferta",
-        PositionStatus.OnHold => "Pausada",
-        _ => status.ToString()
-    };
+        await SaveAsync(async () =>
+        {
+            _ = await HrClient.CreateStaffingPositionAsync(new CreateStaffingPositionRequest(
+                _positionForm.Code,
+                _positionForm.Name,
+                EmptyToNull(_positionForm.Description),
+                _positionForm.Category));
+
+            _positionForm.Reset();
+            _positions = await HrClient.GetStaffingPositionsAsync();
+            ShowSuccess("Cargo registrado correctamente.");
+        });
+    }
+
+    private async Task SaveTemplateAsync()
+    {
+        await SaveAsync(async () =>
+        {
+            _ = await HrClient.CreateJobTemplateAsync(new CreateJobTemplateRequest(
+                _templateForm.EntityId,
+                _templateForm.EducationLevelId,
+                DateOnly.FromDateTime(_templateForm.EffectiveDate),
+                _templateForm.ApprovedBy));
+
+            _templates = await HrClient.GetJobTemplatesAsync();
+            ApplyDefaults();
+            ShowSuccess("Plantilla creada correctamente.");
+        });
+    }
+
+    private async Task SaveTemplatePositionAsync()
+    {
+        await SaveAsync(async () =>
+        {
+            _ = await HrClient.AddJobTemplatePositionAsync(
+                _templatePositionForm.JobTemplateId,
+                new AddJobTemplatePositionRequest(
+                    _templatePositionForm.PositionId,
+                    _templatePositionForm.TotalVacancies,
+                    _templatePositionForm.FilledVacancies,
+                    _templatePositionForm.BaseSalary,
+                    _templatePositionForm.SalaryCategory));
+
+            _templatePositionForm.ResetVacancy();
+            _templatePositions = await HrClient.GetJobTemplatePositionsAsync();
+            ShowSuccess("Plaza agregada a la plantilla.");
+        });
+    }
+
+    private async Task HireAsync()
+    {
+        await SaveAsync(async () =>
+        {
+            _ = await HrClient.HirePersonAsync(new HirePersonRequest(
+                _hireForm.PersonId,
+                _hireForm.EntityId,
+                _hireForm.PositionId,
+                DateOnly.FromDateTime(_hireForm.StartDate),
+                EmptyToNull(_hireForm.Notes)));
+
+            _templatePositions = await HrClient.GetJobTemplatePositionsAsync();
+            _employments = await HrClient.GetEmploymentsAsync();
+            ShowSuccess("Contratacion registrada correctamente.");
+        });
+    }
+
+    private async Task SaveAsync(Func<Task> operation)
+    {
+        _isSaving = true;
+        _message = null;
+
+        try
+        {
+            await operation();
+        }
+        catch (Exception exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void ApplyDefaults()
+    {
+        _templateForm.EntityId = FirstId(_entities, _templateForm.EntityId);
+        _templateForm.EducationLevelId = FirstId(_catalogs.EducationLevels, _templateForm.EducationLevelId);
+        _templatePositionForm.JobTemplateId = FirstId(_templates, _templatePositionForm.JobTemplateId);
+        _templatePositionForm.PositionId = FirstId(_positions, _templatePositionForm.PositionId);
+        _hireForm.PersonId = FirstId(_people, _hireForm.PersonId);
+        _hireForm.EntityId = FirstId(_entities, _hireForm.EntityId);
+        _hireForm.PositionId = FirstId(_positions, _hireForm.PositionId);
+    }
+
+    private string TemplateLabel(JobTemplateResponse template)
+    {
+        return $"{EntityName(template.EntityId)} · {template.EffectiveDate:yyyy-MM-dd}";
+    }
+
+    private string TemplateEntityLabel(Guid jobTemplateId)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == jobTemplateId);
+        return template is null ? "Plantilla no encontrada" : EntityName(template.EntityId);
+    }
+
+    private string EntityName(Guid entityId)
+    {
+        return _entities.FirstOrDefault(entity => entity.Id == entityId)?.Name ?? "Entidad no encontrada";
+    }
+
+    private static string GetAvailabilityClass(JobTemplatePositionResponse templatePosition)
+    {
+        return templatePosition.HasAvailability ? "pill success" : "pill muted";
+    }
+
+    private void ShowSuccess(string message)
+    {
+        _message = message;
+        _messageCss = "alert-success";
+    }
+
+    private void ShowError(string message)
+    {
+        _message = message;
+        _messageCss = "alert-error";
+    }
+
+    private static Guid FirstId(IReadOnlyList<OrganizationEntityResponse> items, Guid current)
+    {
+        return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
+    }
+
+    private static Guid FirstId(IReadOnlyList<CatalogItemResponse> items, Guid current)
+    {
+        return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
+    }
+
+    private static Guid FirstId(IReadOnlyList<PersonResponse> items, Guid current)
+    {
+        return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
+    }
+
+    private static Guid FirstId(IReadOnlyList<StaffingPositionResponse> items, Guid current)
+    {
+        return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
+    }
+
+    private static Guid FirstId(IReadOnlyList<JobTemplateResponse> items, Guid current)
+    {
+        return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
+    }
+
+    private static string? EmptyToNull(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static HumanResourcesCatalogsResponse EmptyCatalogs()
+    {
+        return new HumanResourcesCatalogsResponse([], [], [], [], [], [], [], []);
+    }
+
+    private sealed class PositionForm
+    {
+        public string Code { get; set; } = string.Empty;
+
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public string Category { get; set; } = string.Empty;
+
+        public void Reset()
+        {
+            Code = string.Empty;
+            Name = string.Empty;
+            Description = null;
+            Category = string.Empty;
+        }
+    }
+
+    private sealed class TemplateForm
+    {
+        public Guid EntityId { get; set; }
+
+        public Guid EducationLevelId { get; set; }
+
+        public DateTime EffectiveDate { get; set; } = DateTime.Today;
+
+        public string ApprovedBy { get; set; } = "Direccion General";
+    }
+
+    private sealed class TemplatePositionForm
+    {
+        public Guid JobTemplateId { get; set; }
+
+        public Guid PositionId { get; set; }
+
+        public int TotalVacancies { get; set; } = 1;
+
+        public int FilledVacancies { get; set; }
+
+        public decimal BaseSalary { get; set; }
+
+        public string SalaryCategory { get; set; } = string.Empty;
+
+        public void ResetVacancy()
+        {
+            TotalVacancies = 1;
+            FilledVacancies = 0;
+            BaseSalary = 0;
+            SalaryCategory = string.Empty;
+        }
+    }
+
+    private sealed class HireForm
+    {
+        public Guid PersonId { get; set; }
+
+        public Guid EntityId { get; set; }
+
+        public Guid PositionId { get; set; }
+
+        public DateTime StartDate { get; set; } = DateTime.Today;
+
+        public string? Notes { get; set; }
+    }
 }

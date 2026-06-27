@@ -14,7 +14,7 @@ public sealed class Document
     {
         if (personId == Guid.Empty)
         {
-            throw new DomainException("El documento debe pertenecer a una persona.");
+            throw new DomainException("El documento debe pertenecer a un candidato.");
         }
 
         Id = Guid.NewGuid();

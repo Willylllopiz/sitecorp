@@ -86,7 +86,7 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
                 return new SiteCorp.Shared.Employee(
                     index + 1,
                     person?.NationalId.Number ?? "SIN-ID",
-                    person?.FullName.Value ?? "Persona no encontrada",
+                    person?.FullName.Value ?? "Candidato no encontrado",
                     entity?.Name ?? "Entidad no encontrada",
                     position?.Name ?? "Cargo no encontrado",
                     entity?.EntityType.ToString() ?? "N/A",
@@ -214,13 +214,16 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
     {
         if (await repository.GetPersonByNationalIdAsync(request.NationalId, cancellationToken) is not null)
         {
-            throw new DomainException("Ya existe una persona con ese identificador nacional.");
+            throw new DomainException("Ya existe un candidato con ese identificador nacional.");
         }
 
         await EnsurePersonCatalogsAsync(request, cancellationToken);
+        var educationLevel = (await repository.GetEducationLevelsAsync(cancellationToken))
+            .First(level => level.Id == request.EducationLevelId);
+        var specialty = NormalizeSpecialty(request.Specialty, RequiresSpecialty(educationLevel.Code));
 
         var person = new Person(
-            new FullName(request.FirstName, request.LastName),
+            new FullName(request.FirstName, request.FirstLastName, request.SecondLastName),
             new NationalId(request.NationalId),
             request.BirthDate,
             MapAddress(request.Address),
@@ -232,12 +235,13 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
             request.HasEmploymentContract,
             request.DisciplinaryMeasures,
             request.EducationLevelId,
+            specialty,
             request.MaritalStatusId,
             request.GenderId,
             request.SkinColorId,
             request.PoliticalAffiliationId,
             request.EmploymentTypeId,
-            request.DrivingLicenseCategoryId,
+            request.HasDrivingLicense ? DistinctIds(request.DrivingLicenseCategoryIds) : [],
             request.RetireeRehireStatusId,
             MapPhysicalData(request.PhysicalData));
 
@@ -358,7 +362,7 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
         CancellationToken cancellationToken = default)
     {
         var person = await repository.GetPersonByIdAsync(request.PersonId, cancellationToken)
-            ?? throw new DomainException("No existe la persona indicada.");
+            ?? throw new DomainException("No existe el candidato indicado.");
 
         var entity = await repository.GetOrganizationEntityByIdAsync(request.EntityId, cancellationToken)
             ?? throw new DomainException("No existe la entidad indicada.");
@@ -374,7 +378,7 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
 
         if (await repository.HasActiveEmploymentAsync(request.PersonId, request.EntityId, request.PositionId, cancellationToken))
         {
-            throw new DomainException("La persona ya tiene una relacion laboral activa con esa entidad y ese cargo.");
+            throw new DomainException("El candidato ya tiene una relacion laboral activa con esa entidad y ese cargo.");
         }
 
         templatePosition.OccupyVacancy();
@@ -443,9 +447,18 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
         await EnsureCatalogAsync<EmploymentType>(request.EmploymentTypeId, "No existe el tipo de empleo indicado.", cancellationToken);
         await EnsureCatalogAsync<RetireeRehireStatus>(request.RetireeRehireStatusId, "No existe la condicion de jubilado/recontratado indicada.", cancellationToken);
 
-        if (request.DrivingLicenseCategoryId is { } drivingLicenseCategoryId)
+        var drivingLicenseCategoryIds = DistinctIds(request.DrivingLicenseCategoryIds);
+        if (request.HasDrivingLicense && drivingLicenseCategoryIds.Count == 0)
         {
-            await EnsureCatalogAsync<DrivingLicenseCategory>(drivingLicenseCategoryId, "No existe la categoria de licencia indicada.", cancellationToken);
+            throw new DomainException("Debe seleccionar al menos una categoria de licencia de conduccion.");
+        }
+
+        foreach (var drivingLicenseCategoryId in drivingLicenseCategoryIds)
+        {
+            await EnsureCatalogAsync<DrivingLicenseCategory>(
+                drivingLicenseCategoryId,
+                "No existe la categoria de licencia indicada.",
+                cancellationToken);
         }
     }
 
@@ -456,6 +469,40 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
         {
             throw new DomainException(message);
         }
+    }
+
+    private static string? NormalizeSpecialty(string? specialty, bool isRequired)
+    {
+        if (string.IsNullOrWhiteSpace(specialty))
+        {
+            if (isRequired)
+            {
+                throw new DomainException("La especialidad es obligatoria para el nivel educacional seleccionado.");
+            }
+
+            return null;
+        }
+
+        return isRequired ? specialty.Trim() : null;
+    }
+
+    private static bool RequiresSpecialty(string code)
+    {
+        var normalized = code
+            .Trim()
+            .ToUpperInvariant()
+            .Replace("É", "E")
+            .Replace("  ", " ");
+
+        return normalized is "TECNICO MEDIO" or "SUPERIOR";
+    }
+
+    private static IReadOnlyList<Guid> DistinctIds(IEnumerable<Guid>? ids)
+    {
+        return ids?
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList() ?? [];
     }
 
     private static Address MapAddress(SiteCorp.Shared.AddressDto address)
@@ -486,7 +533,9 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
                 OrganizationEntityType.BusinessUnit => SiteCorp.Shared.OrganizationEntityType.BusinessUnit,
                 _ => throw new ArgumentOutOfRangeException(nameof(entity))
             },
-            entity.IsActive);
+            entity.IsActive,
+            entity is Company company ? company.BusinessGroupId : null,
+            entity is BusinessUnit businessUnit ? businessUnit.CompanyId : null);
     }
 
     private static SiteCorp.Shared.CatalogItemResponse MapCatalogItem(CatalogItem catalogItem)
@@ -513,9 +562,17 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
         return new SiteCorp.Shared.PersonResponse(
             person.Id,
             person.FullName.Value,
+            person.FullName.FirstName,
+            person.FullName.FirstLastName,
+            person.FullName.SecondLastName,
+            person.Specialty,
             person.NationalId.Number,
             person.BirthDate,
             person.Address.FormatAddress(),
+            person.DrivingLicenseCategories.Count > 0,
+            person.DrivingLicenseCategories
+                .Select(category => category.DrivingLicenseCategoryId)
+                .ToList(),
             person.NumberOfChildren);
     }
 
@@ -566,7 +623,7 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
         return new SiteCorp.Shared.EmploymentResponse(
             history.Id,
             history.PersonId,
-            person?.FullName.Value ?? "Persona no encontrada",
+            person?.FullName.Value ?? "Candidato no encontrado",
             history.EntityId,
             entity?.Name ?? "Entidad no encontrada",
             history.PositionId,

@@ -18,7 +18,7 @@ else
         <div>
             <p class="eyebrow">Estructura</p>
             <h1>Organizacion</h1>
-            <p class="subtitle">Alta inicial de grupos empresariales, empresas y unidades donde se contrataran personas.</p>
+            <p class="subtitle">Alta inicial de grupos empresariales, empresas y UEB donde se contrataran candidatos.</p>
         </div>
         <div class="header-actions">
             <button class="action-button secondary" type="button" @onclick="LoadAsync">Actualizar</button>
@@ -45,7 +45,7 @@ else
                     <select @bind="_form.Type">
                         <option value="@OrganizationEntityType.BusinessGroup">Grupo empresarial</option>
                         <option value="@OrganizationEntityType.Company">Empresa</option>
-                        <option value="@OrganizationEntityType.BusinessUnit">Unidad de negocio</option>
+                        <option value="@OrganizationEntityType.BusinessUnit">UEB</option>
                     </select>
                 </label>
 
@@ -90,16 +90,12 @@ else
                 @if (_form.Type is not OrganizationEntityType.BusinessGroup)
                 {
                     <label>
-                        Calle
-                        <input @bind="_form.Street" required maxlength="180" />
+                        Direccion
+                        <input @bind="_form.AddressLine" required maxlength="220" />
                     </label>
                     <label>
-                        Numero
-                        <input @bind="_form.Number" maxlength="40" />
-                    </label>
-                    <label>
-                        Ciudad
-                        <input @bind="_form.City" required maxlength="120" />
+                        Municipio
+                        <input @bind="_form.Municipality" required maxlength="120" />
                     </label>
                     <label>
                         Provincia
@@ -129,16 +125,85 @@ else
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var entity in _entities)
+                    @if (!_entities.Any())
                     {
                         <tr>
-                            <td>
-                                <strong>@entity.Name</strong>
-                                <span>@(entity.Description ?? "Sin descripcion")</span>
-                            </td>
-                            <td>@GetEntityTypeLabel(entity.EntityType)</td>
-                            <td><span class="pill success">Activa</span></td>
+                            <td colspan="3" class="empty-state">No hay entidades registradas.</td>
                         </tr>
+                    }
+                    else
+                    {
+                        @foreach (var group in OrganizationTree)
+                        {
+                            <tr class="tree-row tree-level-0">
+                                <td>
+                                    <div class="tree-cell">
+                                        <span class="tree-branch"></span>
+                                        <span class="tree-node-icon">GE</span>
+                                        <span>
+                                            <strong>@group.Entity.Name</strong>
+                                            <span>@(group.Entity.Description ?? "Sin descripcion")</span>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>@GetEntityTypeLabel(group.Entity.EntityType)</td>
+                                <td><span class="@GetStatusCss(group.Entity)">@GetStatusLabel(group.Entity)</span></td>
+                            </tr>
+
+                            @foreach (var company in group.Companies)
+                            {
+                                <tr class="tree-row tree-level-1">
+                                    <td>
+                                        <div class="tree-cell">
+                                            <span class="tree-branch"></span>
+                                            <span class="tree-node-icon">E</span>
+                                            <span>
+                                                <strong>@company.Entity.Name</strong>
+                                                <span>@(company.Entity.Description ?? "Sin descripcion")</span>
+                                            </span>
+                                        </div>
+                                    </td>
+                                    <td>@GetEntityTypeLabel(company.Entity.EntityType)</td>
+                                    <td><span class="@GetStatusCss(company.Entity)">@GetStatusLabel(company.Entity)</span></td>
+                                </tr>
+
+                                @foreach (var unit in company.BusinessUnits)
+                                {
+                                    <tr class="tree-row tree-level-2">
+                                        <td>
+                                            <div class="tree-cell">
+                                                <span class="tree-branch"></span>
+                                                <span class="tree-node-icon">UEB</span>
+                                                <span>
+                                                    <strong>@unit.Name</strong>
+                                                    <span>@(unit.Description ?? "Sin descripcion")</span>
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td>@GetEntityTypeLabel(unit.EntityType)</td>
+                                        <td><span class="@GetStatusCss(unit)">@GetStatusLabel(unit)</span></td>
+                                    </tr>
+                                }
+                            }
+                        }
+
+                        @foreach (var entity in OrphanEntities)
+                        {
+                            <tr class="tree-row tree-level-0">
+                                <td>
+                                    <div class="tree-cell">
+                                        <span class="tree-branch"></span>
+                                        <span class="tree-node-icon">?</span>
+                                        <span>
+                                            <strong>@entity.Name</strong>
+                                            <span>@(entity.Description ?? "Sin descripcion")</span>
+                                        </span>
+                                    </div>
+                                </td>
+                                <td>@GetEntityTypeLabel(entity.EntityType)</td>
+                                <td><span class="@GetStatusCss(entity)">@GetStatusLabel(entity)</span></td>
+                            </tr>
+                        }
                     }
                 </tbody>
             </table>
@@ -155,10 +220,20 @@ else
     private string _messageCss = "alert-success";
 
     private IEnumerable<OrganizationEntityResponse> BusinessGroups =>
-        _entities.Where(entity => entity.EntityType is OrganizationEntityType.BusinessGroup);
+        _entities
+            .Where(entity => entity.EntityType is OrganizationEntityType.BusinessGroup)
+            .OrderBy(entity => entity.Name);
 
     private IEnumerable<OrganizationEntityResponse> Companies =>
-        _entities.Where(entity => entity.EntityType is OrganizationEntityType.Company);
+        _entities
+            .Where(entity => entity.EntityType is OrganizationEntityType.Company)
+            .OrderBy(entity => entity.Name);
+
+    private IEnumerable<BusinessGroupNode> OrganizationTree => BuildOrganizationTree();
+
+    private IEnumerable<OrganizationEntityResponse> OrphanEntities => _entities
+        .Where(IsOrphanEntity)
+        .OrderBy(entity => entity.Name);
 
     protected override async Task OnInitializedAsync()
     {
@@ -219,9 +294,9 @@ else
     private AddressDto BuildAddress()
     {
         return new AddressDto(
-            _form.Street,
-            EmptyToNull(_form.Number),
-            _form.City,
+            _form.AddressLine,
+            null,
+            _form.Municipality,
             _form.Province,
             EmptyToNull(_form.PostalCode));
     }
@@ -242,14 +317,73 @@ else
     {
         OrganizationEntityType.BusinessGroup => "Grupo empresarial",
         OrganizationEntityType.Company => "Empresa",
-        OrganizationEntityType.BusinessUnit => "Unidad de negocio",
+        OrganizationEntityType.BusinessUnit => "UEB",
         _ => entityType.ToString()
     };
+
+    private static string GetStatusCss(OrganizationEntityResponse entity) =>
+        entity.IsActive ? "pill success" : "pill muted";
+
+    private static string GetStatusLabel(OrganizationEntityResponse entity) =>
+        entity.IsActive ? "Activa" : "Inactiva";
+
+    private IReadOnlyList<BusinessGroupNode> BuildOrganizationTree()
+    {
+        IReadOnlyList<OrganizationEntityResponse> noUnits = Array.Empty<OrganizationEntityResponse>();
+        IReadOnlyList<CompanyNode> noCompanies = Array.Empty<CompanyNode>();
+
+        var unitsByCompany = _entities
+            .Where(entity => entity.EntityType is OrganizationEntityType.BusinessUnit && entity.CompanyId.HasValue)
+            .GroupBy(entity => entity.CompanyId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(entity => entity.Name).ToList());
+
+        var companiesByGroup = _entities
+            .Where(entity => entity.EntityType is OrganizationEntityType.Company && entity.BusinessGroupId.HasValue)
+            .GroupBy(entity => entity.BusinessGroupId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .OrderBy(entity => entity.Name)
+                    .Select(company => new CompanyNode(
+                        company,
+                        unitsByCompany.TryGetValue(company.Id, out var units) ? units : noUnits))
+                    .ToList());
+
+        return _entities
+            .Where(entity => entity.EntityType is OrganizationEntityType.BusinessGroup)
+            .OrderBy(entity => entity.Name)
+            .Select(group => new BusinessGroupNode(
+                group,
+                companiesByGroup.TryGetValue(group.Id, out var companies) ? companies : noCompanies))
+            .ToList();
+    }
+
+    private bool IsOrphanEntity(OrganizationEntityResponse entity)
+    {
+        return entity.EntityType switch
+        {
+            OrganizationEntityType.Company => !entity.BusinessGroupId.HasValue ||
+                !_entities.Any(group => group.Id == entity.BusinessGroupId.Value),
+            OrganizationEntityType.BusinessUnit => !entity.CompanyId.HasValue ||
+                !_entities.Any(company => company.Id == entity.CompanyId.Value),
+            _ => false
+        };
+    }
 
     private static string? EmptyToNull(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
+
+    private sealed record BusinessGroupNode(
+        OrganizationEntityResponse Entity,
+        IReadOnlyList<CompanyNode> Companies);
+
+    private sealed record CompanyNode(
+        OrganizationEntityResponse Entity,
+        IReadOnlyList<OrganizationEntityResponse> BusinessUnits);
 
     private sealed class OrganizationForm
     {
@@ -263,11 +397,9 @@ else
 
         public string? Description { get; set; }
 
-        public string Street { get; set; } = string.Empty;
+        public string AddressLine { get; set; } = string.Empty;
 
-        public string? Number { get; set; }
-
-        public string City { get; set; } = string.Empty;
+        public string Municipality { get; set; } = string.Empty;
 
         public string Province { get; set; } = string.Empty;
 
@@ -277,9 +409,8 @@ else
         {
             Name = string.Empty;
             Description = null;
-            Street = string.Empty;
-            Number = null;
-            City = string.Empty;
+            AddressLine = string.Empty;
+            Municipality = string.Empty;
             Province = string.Empty;
             PostalCode = null;
         }

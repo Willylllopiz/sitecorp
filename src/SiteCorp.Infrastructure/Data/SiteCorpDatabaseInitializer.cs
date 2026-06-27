@@ -181,7 +181,6 @@ public static class SiteCorpDatabaseInitializer
         var skinColor = await dbContext.SkinColors.FirstAsync(item => item.Code == "ND");
         var affiliation = await dbContext.PoliticalAffiliations.FirstAsync(item => item.Code == "NINGUNA");
         var employmentType = await dbContext.EmploymentTypes.FirstAsync(item => item.Code == "CONTRATADO");
-        var license = await dbContext.DrivingLicenseCategories.FirstAsync(item => item.Code == "NINGUNA");
         var retireeStatus = await dbContext.RetireeRehireStatuses.FirstAsync(item => item.Code == "NO_APLICA");
 
         var group = new BusinessGroup("Grupo SiteCorp Demo", "Grupo empresarial inicial para pruebas.");
@@ -224,7 +223,7 @@ public static class SiteCorpDatabaseInitializer
         await dbContext.SaveChangesAsync();
 
         var person = new Person(
-            new FullName("Laura", "Benitez"),
+            new FullName("Laura", "Benitez", "Perez"),
             new NationalId("SC-DEMO-1001"),
             new DateOnly(1992, 3, 12),
             new Address("Avenida Central", "44", "Habana", "La Habana", null),
@@ -236,12 +235,13 @@ public static class SiteCorpDatabaseInitializer
             hasEmploymentContract: true,
             disciplinaryMeasures: null,
             university.Id,
+            specialty: "Psicologia",
             married.Id,
             female.Id,
             skinColor.Id,
             affiliation.Id,
             employmentType.Id,
-            license.Id,
+            Array.Empty<Guid>(),
             retireeStatus.Id,
             new PhysicalData(168, 62, "M", "M", "38"));
         await dbContext.Persons.AddAsync(person);

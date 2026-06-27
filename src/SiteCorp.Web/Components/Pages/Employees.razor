@@ -4,13 +4,13 @@
 @attribute [Authorize]
 @inject HumanResourcesApiClient HrClient
 
-<PageTitle>SiteCorp | Personas</PageTitle>
+<PageTitle>SiteCorp | Candidatos</PageTitle>
 
 @if (_isLoading)
 {
     <section class="loading-panel">
         <div class="loader"></div>
-        <p>Cargando personas y catalogos...</p>
+        <p>Cargando candidatos y catalogos...</p>
     </section>
 }
 else
@@ -18,8 +18,8 @@ else
     <section class="page-header compact">
         <div>
             <p class="eyebrow">Capital humano</p>
-            <h1>Personas</h1>
-            <p class="subtitle">Registro inicial de personas naturales antes de asociarlas a una entidad por contratacion.</p>
+            <h1>Candidatos</h1>
+            <p class="subtitle">Registro inicial de candidatos antes de asociarlos a una entidad por contratacion.</p>
         </div>
         <div class="header-actions">
             <button class="action-button secondary" type="button" @onclick="LoadAsync">Actualizar</button>
@@ -35,7 +35,7 @@ else
         <article class="panel">
             <div class="panel-heading">
                 <div>
-                    <p class="eyebrow">Nueva persona</p>
+                    <p class="eyebrow">Nuevo candidato</p>
                     <h2>Datos base</h2>
                 </div>
             </div>
@@ -46,12 +46,16 @@ else
                     <input @bind="_form.FirstName" required maxlength="120" />
                 </label>
                 <label>
-                    Apellidos
-                    <input @bind="_form.LastName" required maxlength="120" />
+                    Primer apellido
+                    <input @bind="_form.FirstLastName" required maxlength="140" />
                 </label>
                 <label>
-                    Identificador nacional
-                    <input @bind="_form.NationalId" required maxlength="40" />
+                    Segundo apellido
+                    <input @bind="_form.SecondLastName" required maxlength="100" />
+                </label>
+                <label>
+                    Carnet de Identidad
+                    <input value="@_form.NationalId" @oninput="OnNationalIdInput" required maxlength="40" />
                 </label>
                 <label>
                     Fecha de nacimiento
@@ -59,19 +63,26 @@ else
                 </label>
                 <label>
                     Nivel educacional
-                    <select @bind="_form.EducationLevelId" required>
+                    <select value="@_form.EducationLevelId" @onchange="OnEducationLevelChanged" required>
                         @foreach (var item in _catalogs.EducationLevels)
                         {
-                            <option value="@item.Id">@item.Description</option>
+                            <option value="@item.Id">@CatalogOptionLabel(item)</option>
                         }
                     </select>
                 </label>
+                @if (RequiresSpecialty(_form.EducationLevelId))
+                {
+                    <label>
+                        Especialidad
+                        <input @bind="_form.Specialty" required maxlength="180" />
+                    </label>
+                }
                 <label>
                     Estado civil
                     <select @bind="_form.MaritalStatusId" required>
                         @foreach (var item in _catalogs.MaritalStatuses)
                         {
-                            <option value="@item.Id">@item.Description</option>
+                            <option value="@item.Id">@CatalogOptionLabel(item)</option>
                         }
                     </select>
                 </label>
@@ -80,7 +91,7 @@ else
                     <select @bind="_form.GenderId" required>
                         @foreach (var item in _catalogs.Genders)
                         {
-                            <option value="@item.Id">@item.Description</option>
+                            <option value="@item.Id">@CatalogOptionLabel(item)</option>
                         }
                     </select>
                 </label>
@@ -89,7 +100,7 @@ else
                     <select @bind="_form.SkinColorId" required>
                         @foreach (var item in _catalogs.SkinColors)
                         {
-                            <option value="@item.Id">@item.Description</option>
+                            <option value="@item.Id">@CatalogOptionLabel(item)</option>
                         }
                     </select>
                 </label>
@@ -98,7 +109,7 @@ else
                     <select @bind="_form.PoliticalAffiliationId" required>
                         @foreach (var item in _catalogs.PoliticalAffiliations)
                         {
-                            <option value="@item.Id">@item.Description</option>
+                            <option value="@item.Id">@CatalogOptionLabel(item)</option>
                         }
                     </select>
                 </label>
@@ -107,40 +118,52 @@ else
                     <select @bind="_form.EmploymentTypeId" required>
                         @foreach (var item in _catalogs.EmploymentTypes)
                         {
-                            <option value="@item.Id">@item.Description</option>
+                            <option value="@item.Id">@CatalogOptionLabel(item)</option>
                         }
                     </select>
                 </label>
-                <label>
+                <label class="checkbox-label">
+                    <input type="checkbox" checked="@_form.HasDrivingLicense" @onchange="OnHasDrivingLicenseChanged" />
                     Licencia de conduccion
-                    <select @bind="_form.DrivingLicenseCategoryId">
-                        <option value="@Guid.Empty">No aplica</option>
-                        @foreach (var item in _catalogs.DrivingLicenseCategories)
-                        {
-                            <option value="@item.Id">@item.Description</option>
-                        }
-                    </select>
                 </label>
+                @if (_form.HasDrivingLicense)
+                {
+                    <div class="span-2 multi-select">
+                        <button class="action-button secondary multi-select-trigger" type="button" @onclick="ToggleDrivingLicenseMenu">
+                            @DrivingLicenseCategoriesLabel()
+                        </button>
+                        @if (_isDrivingLicenseMenuOpen)
+                        {
+                            <div class="multi-select-menu">
+                                @foreach (var item in DrivingLicenseCategoryOptions)
+                                {
+                                    <label class="multi-select-option">
+                                        <input type="checkbox"
+                                               checked="@IsDrivingLicenseCategorySelected(item.Id)"
+                                               @onchange="eventArgs => ToggleDrivingLicenseCategory(item.Id, eventArgs)" />
+                                        <span>@CatalogOptionLabel(item)</span>
+                                    </label>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
                 <label>
                     Jubilado / recontratado
                     <select @bind="_form.RetireeRehireStatusId" required>
                         @foreach (var item in _catalogs.RetireeRehireStatuses)
                         {
-                            <option value="@item.Id">@item.Description</option>
+                            <option value="@item.Id">@CatalogOptionLabel(item)</option>
                         }
                     </select>
                 </label>
 
                 <label>
-                    Calle
-                    <input @bind="_form.Street" required maxlength="180" />
+                    Direccion Particular
+                    <input @bind="_form.PrivateAddress" required maxlength="220" />
                 </label>
                 <label>
-                    Numero
-                    <input @bind="_form.Number" maxlength="40" />
-                </label>
-                <label>
-                    Ciudad
+                    Municipio
                     <input @bind="_form.City" required maxlength="120" />
                 </label>
                 <label>
@@ -156,11 +179,11 @@ else
                     <input type="number" min="0" @bind="_form.NumberOfChildren" />
                 </label>
                 <label>
-                    Estatura
+                    Estatura (cm)
                     <input type="number" min="0" step="0.01" @bind="_form.Height" />
                 </label>
                 <label>
-                    Peso
+                    Peso (Kg)
                     <input type="number" min="0" step="0.01" @bind="_form.Weight" />
                 </label>
                 <label>
@@ -202,7 +225,7 @@ else
 
                 <div class="form-actions span-2">
                     <button class="action-button" type="submit" disabled="@_isSaving">
-                        @(_isSaving ? "Guardando..." : "Guardar persona")
+                        @(_isSaving ? "Guardando..." : "Guardar candidato")
                     </button>
                 </div>
             </form>
@@ -212,7 +235,7 @@ else
             <table>
                 <thead>
                     <tr>
-                        <th>Persona</th>
+                        <th>Candidato</th>
                         <th>Identificador</th>
                         <th>Nacimiento</th>
                         <th>Direccion</th>
@@ -242,6 +265,10 @@ else
     private bool _isSaving;
     private string? _message;
     private string _messageCss = "alert-success";
+    private bool _isDrivingLicenseMenuOpen;
+
+    private IEnumerable<CatalogItemResponse> DrivingLicenseCategoryOptions =>
+        _catalogs.DrivingLicenseCategories.Where(item => !IsNoDrivingLicenseCategory(item));
 
     protected override async Task OnInitializedAsync()
     {
@@ -276,9 +303,16 @@ else
 
         try
         {
+            if (_form.HasDrivingLicense && _form.DrivingLicenseCategoryIds.Count == 0)
+            {
+                ShowError("Selecciona al menos una categoria de licencia de conduccion.");
+                return;
+            }
+
             var request = new CreatePersonRequest(
                 _form.FirstName,
-                _form.LastName,
+                _form.FirstLastName,
+                _form.SecondLastName,
                 _form.NationalId,
                 DateOnly.FromDateTime(_form.BirthDate),
                 BuildAddress(),
@@ -290,12 +324,14 @@ else
                 _form.HasEmploymentContract,
                 EmptyToNull(_form.DisciplinaryMeasures),
                 _form.EducationLevelId,
+                RequiresSpecialty(_form.EducationLevelId) ? EmptyToNull(_form.Specialty) : null,
                 _form.MaritalStatusId,
                 _form.GenderId,
                 _form.SkinColorId,
                 _form.PoliticalAffiliationId,
                 _form.EmploymentTypeId,
-                _form.DrivingLicenseCategoryId == Guid.Empty ? null : _form.DrivingLicenseCategoryId,
+                _form.HasDrivingLicense,
+                _form.HasDrivingLicense ? _form.DrivingLicenseCategoryIds : [],
                 _form.RetireeRehireStatusId,
                 new PhysicalDataDto(
                     _form.Height,
@@ -308,7 +344,7 @@ else
             _form.ResetAfterSave();
             ApplyCatalogDefaults();
             _people = await HrClient.GetPeopleAsync();
-            ShowSuccess("Persona registrada correctamente.");
+            ShowSuccess("Candidato registrado correctamente.");
         }
         catch (Exception exception)
         {
@@ -329,13 +365,82 @@ else
         _form.PoliticalAffiliationId = FirstId(_catalogs.PoliticalAffiliations, _form.PoliticalAffiliationId);
         _form.EmploymentTypeId = FirstId(_catalogs.EmploymentTypes, _form.EmploymentTypeId);
         _form.RetireeRehireStatusId = FirstId(_catalogs.RetireeRehireStatuses, _form.RetireeRehireStatusId);
+        ClearSpecialtyWhenNotRequired();
+    }
+
+    private void OnHasDrivingLicenseChanged(ChangeEventArgs eventArgs)
+    {
+        _form.HasDrivingLicense = eventArgs.Value is true;
+
+        if (!_form.HasDrivingLicense)
+        {
+            _form.DrivingLicenseCategoryIds.Clear();
+            _isDrivingLicenseMenuOpen = false;
+        }
+    }
+
+    private void ToggleDrivingLicenseMenu()
+    {
+        _isDrivingLicenseMenuOpen = !_isDrivingLicenseMenuOpen;
+    }
+
+    private bool IsDrivingLicenseCategorySelected(Guid categoryId)
+    {
+        return _form.DrivingLicenseCategoryIds.Contains(categoryId);
+    }
+
+    private void ToggleDrivingLicenseCategory(Guid categoryId, ChangeEventArgs eventArgs)
+    {
+        var isSelected = eventArgs.Value is true;
+
+        if (isSelected && !_form.DrivingLicenseCategoryIds.Contains(categoryId))
+        {
+            _form.DrivingLicenseCategoryIds.Add(categoryId);
+        }
+
+        if (!isSelected)
+        {
+            _form.DrivingLicenseCategoryIds.Remove(categoryId);
+        }
+    }
+
+    private string DrivingLicenseCategoriesLabel()
+    {
+        var selectedCodes = DrivingLicenseCategoryOptions
+            .Where(item => _form.DrivingLicenseCategoryIds.Contains(item.Id))
+            .Select(CatalogOptionLabel)
+            .ToList();
+
+        return selectedCodes.Count == 0
+            ? "Selecciona categorias"
+            : string.Join(", ", selectedCodes);
+    }
+
+    private void OnEducationLevelChanged(ChangeEventArgs eventArgs)
+    {
+        if (Guid.TryParse(eventArgs.Value?.ToString(), out var educationLevelId))
+        {
+            _form.EducationLevelId = educationLevelId;
+        }
+
+        ClearSpecialtyWhenNotRequired();
+    }
+
+    private void OnNationalIdInput(ChangeEventArgs eventArgs)
+    {
+        _form.NationalId = eventArgs.Value?.ToString() ?? string.Empty;
+
+        if (TryGetBirthDateFromNationalId(_form.NationalId, out var birthDate))
+        {
+            _form.BirthDate = birthDate.ToDateTime(TimeOnly.MinValue);
+        }
     }
 
     private AddressDto BuildAddress()
     {
         return new AddressDto(
-            _form.Street,
-            EmptyToNull(_form.Number),
+            _form.PrivateAddress,
+            null,
             _form.City,
             _form.Province,
             EmptyToNull(_form.PostalCode));
@@ -358,6 +463,111 @@ else
         return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
     }
 
+    private static string CatalogOptionLabel(CatalogItemResponse item)
+    {
+        return string.IsNullOrWhiteSpace(item.Code) ? item.Description : item.Code;
+    }
+
+    private static bool IsNoDrivingLicenseCategory(CatalogItemResponse item)
+    {
+        var normalized = NormalizeCatalogCode(item.Code);
+        return normalized is "NINGUNA" or "NO" or "NO APLICA" or "NO_APLICA";
+    }
+
+    private bool RequiresSpecialty(Guid educationLevelId)
+    {
+        var code = _catalogs.EducationLevels.FirstOrDefault(item => item.Id == educationLevelId)?.Code;
+        return RequiresSpecialtyCode(code);
+    }
+
+    private void ClearSpecialtyWhenNotRequired()
+    {
+        if (!RequiresSpecialty(_form.EducationLevelId))
+        {
+            _form.Specialty = null;
+        }
+    }
+
+    private static bool RequiresSpecialtyCode(string? code)
+    {
+        var normalized = NormalizeCatalogCode(code);
+        return normalized is "TECNICO MEDIO" or "SUPERIOR";
+    }
+
+    private static string NormalizeCatalogCode(string? code)
+    {
+        return (code ?? string.Empty)
+            .Trim()
+            .ToUpperInvariant()
+            .Replace("É", "E")
+            .Replace("  ", " ");
+    }
+
+    private static bool TryGetBirthDateFromNationalId(string nationalId, out DateOnly birthDate)
+    {
+        birthDate = default;
+
+        var firstSixDigits = GetFirstDigits(nationalId, 6);
+        if (firstSixDigits.Length < 6)
+        {
+            return false;
+        }
+
+        if (!int.TryParse(firstSixDigits[..2], out var yearDigits) ||
+            !int.TryParse(firstSixDigits[2..4], out var month) ||
+            !int.TryParse(firstSixDigits[4..6], out var day))
+        {
+            return false;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var year = (today.Year / 100 * 100) + yearDigits;
+        if (year > today.Year)
+        {
+            year -= 100;
+        }
+
+        try
+        {
+            birthDate = new DateOnly(year, month, day);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+
+        if (birthDate > today)
+        {
+            birthDate = birthDate.AddYears(-100);
+        }
+
+        return true;
+    }
+
+    private static string GetFirstDigits(string value, int maxDigits)
+    {
+        var digits = new char[maxDigits];
+        var count = 0;
+
+        foreach (var character in value)
+        {
+            if (!char.IsDigit(character))
+            {
+                continue;
+            }
+
+            digits[count] = character;
+            count++;
+
+            if (count == maxDigits)
+            {
+                break;
+            }
+        }
+
+        return new string(digits, 0, count);
+    }
+
     private static string? EmptyToNull(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
@@ -372,15 +582,15 @@ else
     {
         public string FirstName { get; set; } = string.Empty;
 
-        public string LastName { get; set; } = string.Empty;
+        public string FirstLastName { get; set; } = string.Empty;
+
+        public string SecondLastName { get; set; } = string.Empty;
 
         public string NationalId { get; set; } = string.Empty;
 
         public DateTime BirthDate { get; set; } = new(1990, 1, 1);
 
-        public string Street { get; set; } = string.Empty;
-
-        public string? Number { get; set; }
+        public string PrivateAddress { get; set; } = string.Empty;
 
         public string City { get; set; } = string.Empty;
 
@@ -404,6 +614,8 @@ else
 
         public Guid EducationLevelId { get; set; }
 
+        public string? Specialty { get; set; }
+
         public Guid MaritalStatusId { get; set; }
 
         public Guid GenderId { get; set; }
@@ -414,7 +626,9 @@ else
 
         public Guid EmploymentTypeId { get; set; }
 
-        public Guid DrivingLicenseCategoryId { get; set; }
+        public bool HasDrivingLicense { get; set; }
+
+        public List<Guid> DrivingLicenseCategoryIds { get; } = new();
 
         public Guid RetireeRehireStatusId { get; set; }
 
@@ -431,11 +645,11 @@ else
         public void ResetAfterSave()
         {
             FirstName = string.Empty;
-            LastName = string.Empty;
+            FirstLastName = string.Empty;
+            SecondLastName = string.Empty;
             NationalId = string.Empty;
             BirthDate = new DateTime(1990, 1, 1);
-            Street = string.Empty;
-            Number = null;
+            PrivateAddress = string.Empty;
             City = string.Empty;
             Province = string.Empty;
             PostalCode = null;
@@ -446,7 +660,9 @@ else
             HasCriminalRecord = false;
             HasEmploymentContract = true;
             DisciplinaryMeasures = null;
-            DrivingLicenseCategoryId = Guid.Empty;
+            Specialty = null;
+            HasDrivingLicense = false;
+            DrivingLicenseCategoryIds.Clear();
             Height = 170;
             Weight = 70;
             PantsSize = null;

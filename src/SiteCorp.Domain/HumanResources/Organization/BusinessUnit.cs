@@ -15,7 +15,7 @@ public sealed class BusinessUnit : OrganizationEntity
     {
         if (companyId == Guid.Empty)
         {
-            throw new DomainException("La unidad de negocio debe pertenecer a una empresa.");
+            throw new DomainException("La UEB debe pertenecer a una empresa.");
         }
 
         CompanyId = companyId;

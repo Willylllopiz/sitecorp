@@ -123,7 +123,9 @@ public sealed record OrganizationEntityResponse(
     string Name,
     string? Description,
     OrganizationEntityType EntityType,
-    bool IsActive);
+    bool IsActive,
+    Guid? BusinessGroupId = null,
+    Guid? CompanyId = null);
 
 public sealed record CatalogItemResponse(
     Guid Id,
@@ -144,7 +146,8 @@ public sealed record HumanResourcesCatalogsResponse(
 
 public sealed record CreatePersonRequest(
     string FirstName,
-    string LastName,
+    string FirstLastName,
+    string SecondLastName,
     string NationalId,
     DateOnly BirthDate,
     AddressDto Address,
@@ -156,21 +159,29 @@ public sealed record CreatePersonRequest(
     bool HasEmploymentContract,
     string? DisciplinaryMeasures,
     Guid EducationLevelId,
+    string? Specialty,
     Guid MaritalStatusId,
     Guid GenderId,
     Guid SkinColorId,
     Guid PoliticalAffiliationId,
     Guid EmploymentTypeId,
-    Guid? DrivingLicenseCategoryId,
+    bool HasDrivingLicense,
+    IReadOnlyList<Guid> DrivingLicenseCategoryIds,
     Guid RetireeRehireStatusId,
     PhysicalDataDto PhysicalData);
 
 public sealed record PersonResponse(
     Guid Id,
     string FullName,
+    string FirstName,
+    string FirstLastName,
+    string SecondLastName,
+    string? Specialty,
     string NationalId,
     DateOnly BirthDate,
     string Address,
+    bool HasDrivingLicense,
+    IReadOnlyList<Guid> DrivingLicenseCategoryIds,
     int NumberOfChildren);
 
 public sealed record CreateStaffingPositionRequest(

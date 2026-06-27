@@ -19,7 +19,7 @@ public sealed class EmploymentHistory
         DateOnly startDate,
         string? notes = null)
     {
-        ValidateRequired(personId, "El historial laboral debe pertenecer a una persona.");
+        ValidateRequired(personId, "El historial laboral debe pertenecer a un candidato.");
         ValidateRequired(entityId, "El historial laboral debe pertenecer a una entidad.");
         ValidateRequired(positionId, "El historial laboral debe referenciar un cargo.");
         ValidateRequired(jobTemplatePositionId, "El historial laboral debe referenciar una plaza de plantilla.");

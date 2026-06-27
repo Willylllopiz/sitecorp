@@ -52,6 +52,8 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
 
     public DbSet<Person> Persons => Set<Person>();
 
+    public DbSet<PersonDrivingLicenseCategory> PersonDrivingLicenseCategories => Set<PersonDrivingLicenseCategory>();
+
     public DbSet<Document> Documents => Set<Document>();
 
     public DbSet<EmploymentHistory> EmploymentHistories => Set<EmploymentHistory>();
@@ -316,13 +318,15 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
             builder.Property(person => person.NumberOfChildren).IsRequired();
             builder.Property(person => person.DefenseSituation).HasMaxLength(180);
             builder.Property(person => person.CompletedDegree).HasMaxLength(180);
+            builder.Property(person => person.Specialty).HasMaxLength(180);
             builder.Property(person => person.DisciplinaryMeasures).HasMaxLength(360);
             builder.Property(person => person.CreatedAt).IsRequired();
 
             builder.OwnsOne(person => person.FullName, owned =>
             {
                 owned.Property(name => name.FirstName).HasColumnName("FirstName").HasMaxLength(100).IsRequired();
-                owned.Property(name => name.LastName).HasColumnName("LastName").HasMaxLength(140).IsRequired();
+                owned.Property(name => name.FirstLastName).HasColumnName("FirstLastName").HasMaxLength(140).IsRequired();
+                owned.Property(name => name.SecondLastName).HasColumnName("SecondLastName").HasMaxLength(100).IsRequired();
                 owned.Ignore(name => name.Value);
             });
 
@@ -361,8 +365,24 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
             builder.HasOne<SkinColor>().WithMany().HasForeignKey(person => person.SkinColorId).OnDelete(DeleteBehavior.NoAction);
             builder.HasOne<PoliticalAffiliation>().WithMany().HasForeignKey(person => person.PoliticalAffiliationId).OnDelete(DeleteBehavior.NoAction);
             builder.HasOne<EmploymentType>().WithMany().HasForeignKey(person => person.EmploymentTypeId).OnDelete(DeleteBehavior.NoAction);
-            builder.HasOne<DrivingLicenseCategory>().WithMany().HasForeignKey(person => person.DrivingLicenseCategoryId).OnDelete(DeleteBehavior.NoAction);
             builder.HasOne<RetireeRehireStatus>().WithMany().HasForeignKey(person => person.RetireeRehireStatusId).OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<PersonDrivingLicenseCategory>(builder =>
+        {
+            builder.ToTable("PersonDrivingLicenseCategories", "hr");
+            builder.HasKey(category => new { category.PersonId, category.DrivingLicenseCategoryId });
+            builder.HasIndex(category => category.DrivingLicenseCategoryId);
+
+            builder.HasOne<Person>()
+                .WithMany(person => person.DrivingLicenseCategories)
+                .HasForeignKey(category => category.PersonId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.HasOne<DrivingLicenseCategory>()
+                .WithMany()
+                .HasForeignKey(category => category.DrivingLicenseCategoryId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<Document>(builder =>

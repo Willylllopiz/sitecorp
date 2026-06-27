@@ -526,6 +526,55 @@ td span {
     width: auto;
 }
 
+.multi-select {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+    position: relative;
+}
+
+.multi-select-trigger {
+    justify-self: start;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.multi-select-menu {
+    background: #ffffff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    display: grid;
+    gap: 4px;
+    max-height: 220px;
+    max-width: 360px;
+    overflow-y: auto;
+    padding: 8px;
+    width: min(100%, 360px);
+    z-index: 3;
+}
+
+.multi-select-option {
+    align-items: center;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    min-height: 34px;
+    padding: 6px 8px;
+}
+
+.multi-select-option:hover {
+    background: var(--surface-soft);
+}
+
+.multi-select-option input {
+    min-height: auto;
+    width: auto;
+}
+
 .compact-list {
     display: grid;
     gap: 10px;
@@ -596,6 +645,74 @@ th {
 td strong,
 td span {
     display: block;
+}
+
+.empty-state {
+    color: var(--muted);
+    font-weight: 700;
+    text-align: center;
+}
+
+.tree-row td:first-child {
+    min-width: 440px;
+}
+
+.tree-cell {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    min-width: 0;
+}
+
+.tree-cell > span:last-child {
+    min-width: 0;
+}
+
+.tree-branch {
+    border-bottom: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+    flex: 0 0 16px;
+    height: 18px;
+}
+
+.tree-level-0 .tree-branch {
+    border-left: 0;
+    flex-basis: 0;
+}
+
+.tree-level-1 .tree-cell {
+    padding-left: 28px;
+}
+
+.tree-level-2 .tree-cell {
+    padding-left: 58px;
+}
+
+.tree-node-icon {
+    align-items: center;
+    background: var(--brand-primary-soft);
+    border: 1px solid rgba(26, 95, 122, 0.18);
+    border-radius: 8px;
+    color: var(--brand-primary-dark);
+    display: inline-flex;
+    flex: 0 0 34px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    height: 30px;
+    justify-content: center;
+    line-height: 1;
+}
+
+.tree-level-1 .tree-node-icon {
+    background: var(--brand-secondary-soft);
+    border-color: rgba(244, 157, 55, 0.3);
+    color: var(--brand-secondary-dark);
+}
+
+.tree-level-2 .tree-node-icon {
+    background: var(--code-bg);
+    border-color: var(--line);
+    color: var(--muted);
 }
 
 .position-grid {

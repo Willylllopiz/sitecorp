@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SiteCorp.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SiteCorp.Infrastructure.Data;
 namespace SiteCorp.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(SiteCorpDbContext))]
-    partial class SiteCorpDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260627032149_AddCandidateSpecialty")]
+    partial class AddCandidateSpecialty
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -732,6 +735,9 @@ namespace SiteCorp.Infrastructure.Data.Migrations
                         .HasMaxLength(360)
                         .HasColumnType("nvarchar(360)");
 
+                    b.Property<Guid?>("DrivingLicenseCategoryId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("EducationLevelId")
                         .HasColumnType("uniqueidentifier");
 
@@ -771,6 +777,8 @@ namespace SiteCorp.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DrivingLicenseCategoryId");
+
                     b.HasIndex("EducationLevelId");
 
                     b.HasIndex("EmploymentTypeId");
@@ -786,21 +794,6 @@ namespace SiteCorp.Infrastructure.Data.Migrations
                     b.HasIndex("SkinColorId");
 
                     b.ToTable("Persons", "hr");
-                });
-
-            modelBuilder.Entity("SiteCorp.Domain.HumanResources.People.PersonDrivingLicenseCategory", b =>
-                {
-                    b.Property<Guid>("PersonId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("DrivingLicenseCategoryId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("PersonId", "DrivingLicenseCategoryId");
-
-                    b.HasIndex("DrivingLicenseCategoryId");
-
-                    b.ToTable("PersonDrivingLicenseCategories", "hr");
                 });
 
             modelBuilder.Entity("SiteCorp.Domain.HumanResources.Staffing.JobTemplate", b =>
@@ -1068,6 +1061,11 @@ namespace SiteCorp.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("SiteCorp.Domain.HumanResources.People.Person", b =>
                 {
+                    b.HasOne("SiteCorp.Domain.HumanResources.Catalogs.DrivingLicenseCategory", null)
+                        .WithMany()
+                        .HasForeignKey("DrivingLicenseCategoryId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("SiteCorp.Domain.HumanResources.Catalogs.EducationLevel", null)
                         .WithMany()
                         .HasForeignKey("EducationLevelId")
@@ -1252,21 +1250,6 @@ namespace SiteCorp.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("PhysicalData")
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("SiteCorp.Domain.HumanResources.People.PersonDrivingLicenseCategory", b =>
-                {
-                    b.HasOne("SiteCorp.Domain.HumanResources.Catalogs.DrivingLicenseCategory", null)
-                        .WithMany()
-                        .HasForeignKey("DrivingLicenseCategoryId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("SiteCorp.Domain.HumanResources.People.Person", null)
-                        .WithMany("DrivingLicenseCategories")
-                        .HasForeignKey("PersonId")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -1460,11 +1443,6 @@ namespace SiteCorp.Infrastructure.Data.Migrations
 
                     b.Navigation("Address")
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("SiteCorp.Domain.HumanResources.People.Person", b =>
-                {
-                    b.Navigation("DrivingLicenseCategories");
                 });
 #pragma warning restore 612, 618
         }

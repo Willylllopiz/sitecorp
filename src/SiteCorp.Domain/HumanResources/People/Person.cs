@@ -7,13 +7,15 @@ public sealed class Person
 {
     private Person()
     {
-        FullName = new FullName("Sin", "Nombre");
+        FullName = new FullName("Sin", "PrimerApellido", "SegundoApellido");
         NationalId = new NationalId("00000");
         Address = new Address("Sin direccion", null, "Sin ciudad", "Sin provincia", null);
         PhysicalData = new PhysicalData(0, 0, null, null, null);
         DefenseSituation = string.Empty;
         CompletedDegree = string.Empty;
+        Specialty = string.Empty;
         DisciplinaryMeasures = string.Empty;
+        DrivingLicenseCategories = new List<PersonDrivingLicenseCategory>();
     }
 
     public Person(
@@ -29,12 +31,13 @@ public sealed class Person
         bool hasEmploymentContract,
         string? disciplinaryMeasures,
         Guid educationLevelId,
+        string? specialty,
         Guid maritalStatusId,
         Guid genderId,
         Guid skinColorId,
         Guid politicalAffiliationId,
         Guid employmentTypeId,
-        Guid? drivingLicenseCategoryId,
+        IReadOnlyCollection<Guid> drivingLicenseCategoryIds,
         Guid retireeRehireStatusId,
         PhysicalData physicalData)
     {
@@ -64,14 +67,18 @@ public sealed class Person
         HasEmploymentContract = hasEmploymentContract;
         DisciplinaryMeasures = Normalize(disciplinaryMeasures);
         EducationLevelId = educationLevelId;
+        Specialty = Normalize(specialty);
         MaritalStatusId = maritalStatusId;
         GenderId = genderId;
         SkinColorId = skinColorId;
         PoliticalAffiliationId = politicalAffiliationId;
         EmploymentTypeId = employmentTypeId;
-        DrivingLicenseCategoryId = drivingLicenseCategoryId == Guid.Empty ? null : drivingLicenseCategoryId;
         RetireeRehireStatusId = retireeRehireStatusId;
         PhysicalData = physicalData;
+        DrivingLicenseCategories = drivingLicenseCategoryIds
+            .Distinct()
+            .Select(categoryId => new PersonDrivingLicenseCategory(Id, categoryId))
+            .ToList();
         CreatedAt = DateTimeOffset.UtcNow;
     }
 
@@ -101,6 +108,8 @@ public sealed class Person
 
     public Guid EducationLevelId { get; private set; }
 
+    public string? Specialty { get; private set; }
+
     public Guid MaritalStatusId { get; private set; }
 
     public Guid GenderId { get; private set; }
@@ -111,7 +120,7 @@ public sealed class Person
 
     public Guid EmploymentTypeId { get; private set; }
 
-    public Guid? DrivingLicenseCategoryId { get; private set; }
+    public List<PersonDrivingLicenseCategory> DrivingLicenseCategories { get; private set; }
 
     public Guid RetireeRehireStatusId { get; private set; }
 

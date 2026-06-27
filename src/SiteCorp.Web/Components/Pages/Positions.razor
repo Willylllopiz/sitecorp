@@ -89,7 +89,7 @@ else
                     <select @bind="_templateForm.EducationLevelId" required>
                         @foreach (var item in _catalogs.EducationLevels)
                         {
-                            <option value="@item.Id">@item.Description</option>
+                            <option value="@item.Id">@CatalogOptionLabel(item)</option>
                         }
                     </select>
                 </label>
@@ -168,15 +168,15 @@ else
             <div class="panel-heading">
                 <div>
                     <p class="eyebrow">Alta laboral</p>
-                    <h2>Contratar persona</h2>
+                    <h2>Contratar candidato</h2>
                 </div>
             </div>
 
             <form class="form-grid" @onsubmit="HireAsync" @onsubmit:preventDefault>
                 <label>
-                    Persona
+                    Candidato
                     <select @bind="_hireForm.PersonId" required>
-                        <option value="@Guid.Empty">Selecciona persona</option>
+                        <option value="@Guid.Empty">Selecciona candidato</option>
                         @foreach (var person in _people)
                         {
                             <option value="@person.Id">@person.FullName</option>
@@ -251,7 +251,7 @@ else
         <table>
             <thead>
                 <tr>
-                    <th>Persona</th>
+                    <th>Candidato</th>
                     <th>Entidad</th>
                     <th>Cargo</th>
                     <th>Inicio</th>
@@ -461,6 +461,11 @@ else
     private static Guid FirstId(IReadOnlyList<CatalogItemResponse> items, Guid current)
     {
         return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
+    }
+
+    private static string CatalogOptionLabel(CatalogItemResponse item)
+    {
+        return string.IsNullOrWhiteSpace(item.Code) ? item.Description : item.Code;
     }
 
     private static Guid FirstId(IReadOnlyList<PersonResponse> items, Guid current)

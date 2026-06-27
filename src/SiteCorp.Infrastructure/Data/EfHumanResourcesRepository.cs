@@ -103,7 +103,9 @@ public sealed class EfHumanResourcesRepository(SiteCorpDbContext dbContext) : IH
     {
         return await dbContext.Persons
             .AsNoTracking()
-            .OrderBy(person => person.FullName.LastName)
+            .Include(person => person.DrivingLicenseCategories)
+            .OrderBy(person => person.FullName.FirstLastName)
+            .ThenBy(person => person.FullName.SecondLastName)
             .ThenBy(person => person.FullName.FirstName)
             .ToListAsync(cancellationToken);
     }

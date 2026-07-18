@@ -860,6 +860,9 @@ namespace SiteCorp.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("AreaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("JobTemplateId")
                         .HasColumnType("uniqueidentifier");
 
@@ -874,12 +877,41 @@ namespace SiteCorp.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AreaId");
+
                     b.HasIndex("PositionId");
 
                     b.HasIndex("JobTemplateId", "PositionId")
                         .IsUnique();
 
                     b.ToTable("JobTemplatePositions", "hr");
+                });
+
+            modelBuilder.Entity("SiteCorp.Domain.HumanResources.Staffing.StaffingArea", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(140)
+                        .HasColumnType("nvarchar(140)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("StaffingAreas", "hr");
                 });
 
             modelBuilder.Entity("SiteCorp.Domain.HumanResources.Staffing.Position", b =>
@@ -1299,6 +1331,12 @@ namespace SiteCorp.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("SiteCorp.Domain.HumanResources.Staffing.JobTemplatePosition", b =>
                 {
+                    b.HasOne("SiteCorp.Domain.HumanResources.Staffing.StaffingArea", null)
+                        .WithMany()
+                        .HasForeignKey("AreaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("SiteCorp.Domain.HumanResources.Staffing.JobTemplate", null)
                         .WithMany()
                         .HasForeignKey("JobTemplateId")

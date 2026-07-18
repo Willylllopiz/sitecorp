@@ -199,6 +199,16 @@ public sealed record CreateStaffingPositionRequest(
     string? Description,
     string Category);
 
+public sealed record CreateStaffingAreaRequest(
+    string Name,
+    int Priority);
+
+public sealed record StaffingAreaResponse(
+    Guid Id,
+    string Name,
+    int Priority,
+    bool IsActive);
+
 public sealed record StaffingPositionResponse(
     Guid Id,
     string Code,
@@ -214,6 +224,7 @@ public sealed record CreateJobTemplateRequest(
     string ApprovedBy);
 
 public sealed record AddJobTemplatePositionRequest(
+    Guid AreaId,
     Guid PositionId,
     int TotalVacancies,
     int FilledVacancies,
@@ -231,6 +242,9 @@ public sealed record JobTemplateResponse(
 public sealed record JobTemplatePositionResponse(
     Guid Id,
     Guid JobTemplateId,
+    Guid AreaId,
+    string AreaName,
+    int AreaPriority,
     Guid PositionId,
     string PositionName,
     int TotalVacancies,

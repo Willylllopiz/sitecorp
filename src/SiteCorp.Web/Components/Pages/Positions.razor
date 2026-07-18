@@ -31,7 +31,32 @@ else
         <div class="@_messageCss">@_message</div>
     }
 
-    <section class="work-grid three">
+    <section class="work-grid hiring-setup">
+        <article class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">Orden global</p>
+                    <h2>Area</h2>
+                </div>
+            </div>
+
+            <form class="form-grid single" @onsubmit="SaveAreaAsync" @onsubmit:preventDefault>
+                <label>
+                    Nombre
+                    <input @bind="_areaForm.Name" required maxlength="140" />
+                </label>
+                <label>
+                    Prioridad
+                    <input type="number" min="0" @bind="_areaForm.Priority" />
+                </label>
+                <div class="form-actions">
+                    <button class="action-button" type="submit" disabled="@_isSaving">
+                        Guardar area
+                    </button>
+                </div>
+            </form>
+        </article>
+
         <article class="panel">
             <div class="panel-heading">
                 <div>
@@ -125,6 +150,16 @@ else
                         @foreach (var template in _templates)
                         {
                             <option value="@template.Id">@TemplateLabel(template)</option>
+                        }
+                    </select>
+                </label>
+                <label>
+                    Area
+                    <select @bind="_templatePositionForm.AreaId" required>
+                        <option value="@Guid.Empty">Selecciona area</option>
+                        @foreach (var area in _areas)
+                        {
+                            <option value="@area.Id">@AreaLabel(area)</option>
                         }
                     </select>
                 </label>
@@ -228,19 +263,43 @@ else
             </div>
 
             <div class="compact-list">
-                @foreach (var templatePosition in _templatePositions)
+                @if (_templatePositions.Count == 0)
                 {
-                    <div class="compact-row">
-                        <div>
-                            <strong>@templatePosition.PositionName</strong>
-                            <span>@TemplateEntityLabel(templatePosition.JobTemplateId)</span>
+                    <p class="empty-state">No hay plazas registradas.</p>
+                }
+                @foreach (var templateGroup in TemplatePositionGroups())
+                {
+                    <div class="template-group">
+                        <div class="template-group-heading">
+                            <strong>@TemplateEntityLabel(templateGroup.Key)</strong>
+                            <span>@TemplateEffectiveDateLabel(templateGroup.Key)</span>
                         </div>
-                        <div class="right-stack">
-                            <span class="@GetAvailabilityClass(templatePosition)">
-                                @templatePosition.FilledVacancies / @templatePosition.TotalVacancies
-                            </span>
-                            <span>@templatePosition.BaseSalary.ToString("0.##")</span>
-                        </div>
+
+                        @foreach (var areaGroup in AreaPositionGroups(templateGroup))
+                        {
+                            <div class="area-group">
+                                <div class="area-group-heading">
+                                    <span class="priority-chip">@AreaPriorityLabel(areaGroup.First())</span>
+                                    <strong>@areaGroup.First().AreaName</strong>
+                                </div>
+
+                                @foreach (var templatePosition in areaGroup.OrderBy(position => position.PositionName))
+                                {
+                                    <div class="compact-row area-position-row">
+                                        <div>
+                                            <strong>@templatePosition.PositionName</strong>
+                                            <span>@templatePosition.SalaryCategory</span>
+                                        </div>
+                                        <div class="right-stack">
+                                            <span class="@GetAvailabilityClass(templatePosition)">
+                                                @templatePosition.FilledVacancies / @templatePosition.TotalVacancies
+                                            </span>
+                                            <span>@templatePosition.BaseSalary.ToString("0.##")</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
                     </div>
                 }
             </div>
@@ -276,12 +335,14 @@ else
 
 @code {
     private readonly PositionForm _positionForm = new();
+    private readonly AreaForm _areaForm = new();
     private readonly TemplateForm _templateForm = new();
     private readonly TemplatePositionForm _templatePositionForm = new();
     private readonly HireForm _hireForm = new();
     private HumanResourcesCatalogsResponse _catalogs = EmptyCatalogs();
     private IReadOnlyList<OrganizationEntityResponse> _entities = [];
     private IReadOnlyList<PersonResponse> _people = [];
+    private IReadOnlyList<StaffingAreaResponse> _areas = [];
     private IReadOnlyList<StaffingPositionResponse> _positions = [];
     private IReadOnlyList<JobTemplateResponse> _templates = [];
     private IReadOnlyList<JobTemplatePositionResponse> _templatePositions = [];
@@ -306,6 +367,7 @@ else
             _catalogs = await HrClient.GetCatalogsAsync();
             _entities = await HrClient.GetOrganizationEntitiesAsync();
             _people = await HrClient.GetPeopleAsync();
+            _areas = await HrClient.GetStaffingAreasAsync();
             _positions = await HrClient.GetStaffingPositionsAsync();
             _templates = await HrClient.GetJobTemplatesAsync();
             _templatePositions = await HrClient.GetJobTemplatePositionsAsync();
@@ -320,6 +382,21 @@ else
         {
             _isLoading = false;
         }
+    }
+
+    private async Task SaveAreaAsync()
+    {
+        await SaveAsync(async () =>
+        {
+            _ = await HrClient.CreateStaffingAreaAsync(new CreateStaffingAreaRequest(
+                _areaForm.Name,
+                _areaForm.Priority));
+
+            _areaForm.Reset();
+            _areas = await HrClient.GetStaffingAreasAsync();
+            ApplyDefaults();
+            ShowSuccess("Area registrada correctamente.");
+        });
     }
 
     private async Task SavePositionAsync()
@@ -361,6 +438,7 @@ else
             _ = await HrClient.AddJobTemplatePositionAsync(
                 _templatePositionForm.JobTemplateId,
                 new AddJobTemplatePositionRequest(
+                    _templatePositionForm.AreaId,
                     _templatePositionForm.PositionId,
                     _templatePositionForm.TotalVacancies,
                     _templatePositionForm.FilledVacancies,
@@ -414,6 +492,7 @@ else
         _templateForm.EntityId = FirstId(_entities, _templateForm.EntityId);
         _templateForm.EducationLevelId = FirstId(_catalogs.EducationLevels, _templateForm.EducationLevelId);
         _templatePositionForm.JobTemplateId = FirstId(_templates, _templatePositionForm.JobTemplateId);
+        _templatePositionForm.AreaId = FirstId(_areas, _templatePositionForm.AreaId);
         _templatePositionForm.PositionId = FirstId(_positions, _templatePositionForm.PositionId);
         _hireForm.PersonId = FirstId(_people, _hireForm.PersonId);
         _hireForm.EntityId = FirstId(_entities, _hireForm.EntityId);
@@ -429,6 +508,38 @@ else
     {
         var template = _templates.FirstOrDefault(item => item.Id == jobTemplateId);
         return template is null ? "Plantilla no encontrada" : EntityName(template.EntityId);
+    }
+
+    private string TemplateEffectiveDateLabel(Guid jobTemplateId)
+    {
+        var template = _templates.FirstOrDefault(item => item.Id == jobTemplateId);
+        return template is null ? string.Empty : template.EffectiveDate.ToString("yyyy-MM-dd");
+    }
+
+    private static string AreaLabel(StaffingAreaResponse area)
+    {
+        return $"{area.Priority:00} · {area.Name}";
+    }
+
+    private static string AreaPriorityLabel(JobTemplatePositionResponse templatePosition)
+    {
+        return templatePosition.AreaPriority == int.MaxValue ? "--" : templatePosition.AreaPriority.ToString("00");
+    }
+
+    private IEnumerable<IGrouping<Guid, JobTemplatePositionResponse>> TemplatePositionGroups()
+    {
+        return _templatePositions
+            .GroupBy(position => position.JobTemplateId)
+            .OrderBy(group => TemplateEntityLabel(group.Key));
+    }
+
+    private static IEnumerable<IGrouping<Guid, JobTemplatePositionResponse>> AreaPositionGroups(
+        IEnumerable<JobTemplatePositionResponse> templatePositions)
+    {
+        return templatePositions
+            .GroupBy(position => position.AreaId)
+            .OrderBy(group => group.First().AreaPriority)
+            .ThenBy(group => group.First().AreaName);
     }
 
     private string EntityName(Guid entityId)
@@ -473,6 +584,11 @@ else
         return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
     }
 
+    private static Guid FirstId(IReadOnlyList<StaffingAreaResponse> items, Guid current)
+    {
+        return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
+    }
+
     private static Guid FirstId(IReadOnlyList<StaffingPositionResponse> items, Guid current)
     {
         return current == Guid.Empty ? items.FirstOrDefault()?.Id ?? Guid.Empty : current;
@@ -512,6 +628,19 @@ else
         }
     }
 
+    private sealed class AreaForm
+    {
+        public string Name { get; set; } = string.Empty;
+
+        public int Priority { get; set; } = 10;
+
+        public void Reset()
+        {
+            Name = string.Empty;
+            Priority = 10;
+        }
+    }
+
     private sealed class TemplateForm
     {
         public Guid EntityId { get; set; }
@@ -526,6 +655,8 @@ else
     private sealed class TemplatePositionForm
     {
         public Guid JobTemplateId { get; set; }
+
+        public Guid AreaId { get; set; }
 
         public Guid PositionId { get; set; }
 

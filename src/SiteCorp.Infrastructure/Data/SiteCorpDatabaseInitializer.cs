@@ -170,6 +170,8 @@ public static class SiteCorpDatabaseInitializer
 
     private static async Task SeedHumanResourcesAsync(SiteCorpDbContext dbContext)
     {
+        var humanResourcesArea = await EnsureStaffingAreaAsync(dbContext, "Recursos Humanos", 10);
+
         if (await dbContext.OrganizationEntities.AnyAsync())
         {
             return;
@@ -217,6 +219,7 @@ public static class SiteCorpDatabaseInitializer
 
         var templatePosition = new JobTemplatePosition(
             template.Id,
+            humanResourcesArea.Id,
             position.Id,
             new VacancyInfo(totalVacancies: 2, filledVacancies: 0, baseSalary: 45000, salaryCategory: "CAT-TECNICO"));
         await dbContext.JobTemplatePositions.AddAsync(templatePosition);
@@ -270,5 +273,20 @@ public static class SiteCorpDatabaseInitializer
         {
             await dbSet.AddAsync(item);
         }
+    }
+
+    private static async Task<StaffingArea> EnsureStaffingAreaAsync(SiteCorpDbContext dbContext, string name, int priority)
+    {
+        var area = await dbContext.StaffingAreas.FirstOrDefaultAsync(existing => existing.Name == name);
+
+        if (area is not null)
+        {
+            return area;
+        }
+
+        area = new StaffingArea(name, priority);
+        await dbContext.StaffingAreas.AddAsync(area);
+        await dbContext.SaveChangesAsync();
+        return area;
     }
 }

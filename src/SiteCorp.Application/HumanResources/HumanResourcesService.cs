@@ -6,6 +6,7 @@ using SiteCorp.Domain.HumanResources.ValueObjects;
 using DomainPosition = SiteCorp.Domain.HumanResources.Staffing.Position;
 using JobTemplate = SiteCorp.Domain.HumanResources.Staffing.JobTemplate;
 using JobTemplatePosition = SiteCorp.Domain.HumanResources.Staffing.JobTemplatePosition;
+using StaffingArea = SiteCorp.Domain.HumanResources.Staffing.StaffingArea;
 
 namespace SiteCorp.Application.HumanResources;
 
@@ -101,14 +102,18 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
     {
         var templatePositions = await repository.GetJobTemplatePositionsAsync(cancellationToken);
         var positions = await repository.GetStaffingPositionsAsync(cancellationToken);
+        var areas = await repository.GetStaffingAreasAsync(cancellationToken);
         var templates = await BuildTemplatesByIdAsync(templatePositions, cancellationToken);
         var entities = await repository.GetOrganizationEntitiesAsync(cancellationToken);
 
         var positionsById = positions.ToDictionary(position => position.Id);
+        var areasById = areas.ToDictionary(area => area.Id);
         var entitiesById = entities.ToDictionary(entity => entity.Id);
 
         return templatePositions
-            .OrderBy(position => positionsById.GetValueOrDefault(position.PositionId)?.Name)
+            .OrderBy(position => areasById.GetValueOrDefault(position.AreaId)?.Priority ?? int.MaxValue)
+            .ThenBy(position => areasById.GetValueOrDefault(position.AreaId)?.Name)
+            .ThenBy(position => positionsById.GetValueOrDefault(position.PositionId)?.Name)
             .Select((templatePosition, index) =>
             {
                 var position = positionsById.GetValueOrDefault(templatePosition.PositionId);
@@ -260,6 +265,12 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
         return positions.Select(MapStaffingPosition).ToList();
     }
 
+    public async Task<IReadOnlyList<SiteCorp.Shared.StaffingAreaResponse>> GetStaffingAreasAsync(CancellationToken cancellationToken = default)
+    {
+        var areas = await repository.GetStaffingAreasAsync(cancellationToken);
+        return areas.Select(MapStaffingArea).ToList();
+    }
+
     public async Task<IReadOnlyList<SiteCorp.Shared.JobTemplateResponse>> GetJobTemplatesAsync(CancellationToken cancellationToken = default)
     {
         var templates = await repository.GetJobTemplatesAsync(cancellationToken);
@@ -270,11 +281,17 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
     {
         var templatePositions = await repository.GetJobTemplatePositionsAsync(cancellationToken);
         var positions = await repository.GetStaffingPositionsAsync(cancellationToken);
+        var areas = await repository.GetStaffingAreasAsync(cancellationToken);
         var positionsById = positions.ToDictionary(position => position.Id);
+        var areasById = areas.ToDictionary(area => area.Id);
 
         return templatePositions
+            .OrderBy(templatePosition => areasById.GetValueOrDefault(templatePosition.AreaId)?.Priority ?? int.MaxValue)
+            .ThenBy(templatePosition => areasById.GetValueOrDefault(templatePosition.AreaId)?.Name)
+            .ThenBy(templatePosition => positionsById.GetValueOrDefault(templatePosition.PositionId)?.Name)
             .Select(templatePosition => MapJobTemplatePosition(
                 templatePosition,
+                areasById.GetValueOrDefault(templatePosition.AreaId),
                 positionsById.GetValueOrDefault(templatePosition.PositionId)))
             .ToList();
     }
@@ -297,6 +314,24 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
                 entitiesById.GetValueOrDefault(history.EntityId),
                 positionsById.GetValueOrDefault(history.PositionId)))
             .ToList();
+    }
+
+    public async Task<SiteCorp.Shared.StaffingAreaResponse> CreateStaffingAreaAsync(
+        SiteCorp.Shared.CreateStaffingAreaRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var area = new StaffingArea(request.Name, request.Priority);
+        var existingAreas = await repository.GetStaffingAreasAsync(cancellationToken);
+
+        if (existingAreas.Any(existing => string.Equals(existing.Name, area.Name, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new DomainException("Ya existe un area con ese nombre.");
+        }
+
+        await repository.AddStaffingAreaAsync(area, cancellationToken);
+        await repository.SaveChangesAsync(cancellationToken);
+
+        return MapStaffingArea(area);
     }
 
     public async Task<SiteCorp.Shared.StaffingPositionResponse> CreateStaffingPositionAsync(
@@ -341,6 +376,9 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
         _ = await repository.GetJobTemplateByIdAsync(jobTemplateId, cancellationToken)
             ?? throw new DomainException("No existe la plantilla indicada.");
 
+        var area = await repository.GetStaffingAreaByIdAsync(request.AreaId, cancellationToken)
+            ?? throw new DomainException("No existe el area indicada.");
+
         var position = await repository.GetStaffingPositionByIdAsync(request.PositionId, cancellationToken)
             ?? throw new DomainException("No existe el cargo indicado.");
 
@@ -351,13 +389,14 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
 
         var templatePosition = new JobTemplatePosition(
             jobTemplateId,
+            request.AreaId,
             request.PositionId,
             new VacancyInfo(request.TotalVacancies, request.FilledVacancies, request.BaseSalary, request.SalaryCategory));
 
         await repository.AddJobTemplatePositionAsync(templatePosition, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
 
-        return MapJobTemplatePosition(templatePosition, position);
+        return MapJobTemplatePosition(templatePosition, area, position);
     }
 
     public async Task<SiteCorp.Shared.EmploymentResponse> HirePersonAsync(
@@ -676,6 +715,15 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
             position.IsActive);
     }
 
+    private static SiteCorp.Shared.StaffingAreaResponse MapStaffingArea(StaffingArea area)
+    {
+        return new SiteCorp.Shared.StaffingAreaResponse(
+            area.Id,
+            area.Name,
+            area.Priority,
+            area.IsActive);
+    }
+
     private static SiteCorp.Shared.JobTemplateResponse MapJobTemplate(JobTemplate template)
     {
         return new SiteCorp.Shared.JobTemplateResponse(
@@ -689,11 +737,15 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
 
     private static SiteCorp.Shared.JobTemplatePositionResponse MapJobTemplatePosition(
         JobTemplatePosition templatePosition,
+        StaffingArea? area,
         DomainPosition? position)
     {
         return new SiteCorp.Shared.JobTemplatePositionResponse(
             templatePosition.Id,
             templatePosition.JobTemplateId,
+            templatePosition.AreaId,
+            area?.Name ?? "Area no encontrada",
+            area?.Priority ?? int.MaxValue,
             templatePosition.PositionId,
             position?.Name ?? "Cargo no encontrado",
             templatePosition.Vacancy.TotalVacancies,

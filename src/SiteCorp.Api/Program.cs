@@ -233,6 +233,9 @@ protectedApi.MapPost("/people", async (
 protectedApi.MapGet("/staffing/positions", async (HumanResourcesService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetStaffingPositionsAsync(cancellationToken)));
 
+protectedApi.MapGet("/staffing/areas", async (HumanResourcesService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetStaffingAreasAsync(cancellationToken)));
+
 protectedApi.MapGet("/staffing/job-templates", async (HumanResourcesService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetJobTemplatesAsync(cancellationToken)));
 
@@ -248,6 +251,22 @@ protectedApi.MapPost("/staffing/positions", async (
     {
         var created = await service.CreateStaffingPositionAsync(request, cancellationToken);
         return Results.Created($"/api/staffing/positions/{created.Id}", created);
+    }
+    catch (DomainException exception)
+    {
+        return Results.BadRequest(new { message = exception.Message });
+    }
+});
+
+protectedApi.MapPost("/staffing/areas", async (
+    CreateStaffingAreaRequest request,
+    HumanResourcesService service,
+    CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var created = await service.CreateStaffingAreaAsync(request, cancellationToken);
+        return Results.Created($"/api/staffing/areas/{created.Id}", created);
     }
     catch (DomainException exception)
     {

@@ -126,6 +126,25 @@ public sealed class EfHumanResourcesRepository(SiteCorpDbContext dbContext) : IH
         await dbContext.Persons.AddAsync(person, cancellationToken);
     }
 
+    public async Task<IReadOnlyList<StaffingArea>> GetStaffingAreasAsync(CancellationToken cancellationToken = default)
+    {
+        return await dbContext.StaffingAreas
+            .AsNoTracking()
+            .OrderBy(area => area.Priority)
+            .ThenBy(area => area.Name)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<StaffingArea?> GetStaffingAreaByIdAsync(Guid areaId, CancellationToken cancellationToken = default)
+    {
+        return dbContext.StaffingAreas.FirstOrDefaultAsync(area => area.Id == areaId, cancellationToken);
+    }
+
+    public async Task AddStaffingAreaAsync(StaffingArea area, CancellationToken cancellationToken = default)
+    {
+        await dbContext.StaffingAreas.AddAsync(area, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<StaffingPosition>> GetStaffingPositionsAsync(CancellationToken cancellationToken = default)
     {
         return await dbContext.StaffingPositions

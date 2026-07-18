@@ -69,6 +69,16 @@ public sealed class HumanResourcesApiClient(HttpClient httpClient, Authenticatio
         return PostAsJsonAsync<CreateStaffingPositionRequest, StaffingPositionResponse>("api/staffing/positions", request, cancellationToken);
     }
 
+    public Task<IReadOnlyList<StaffingAreaResponse>> GetStaffingAreasAsync(CancellationToken cancellationToken = default)
+    {
+        return GetRequiredFromJsonAsync<IReadOnlyList<StaffingAreaResponse>>("api/staffing/areas", cancellationToken);
+    }
+
+    public Task<StaffingAreaResponse> CreateStaffingAreaAsync(CreateStaffingAreaRequest request, CancellationToken cancellationToken = default)
+    {
+        return PostAsJsonAsync<CreateStaffingAreaRequest, StaffingAreaResponse>("api/staffing/areas", request, cancellationToken);
+    }
+
     public Task<IReadOnlyList<JobTemplateResponse>> GetJobTemplatesAsync(CancellationToken cancellationToken = default)
     {
         return GetRequiredFromJsonAsync<IReadOnlyList<JobTemplateResponse>>("api/staffing/job-templates", cancellationToken);

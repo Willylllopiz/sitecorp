@@ -58,6 +58,8 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
 
     public DbSet<EmploymentHistory> EmploymentHistories => Set<EmploymentHistory>();
 
+    public DbSet<StaffingArea> StaffingAreas => Set<StaffingArea>();
+
     public DbSet<StaffingPosition> StaffingPositions => Set<StaffingPosition>();
 
     public DbSet<JobTemplate> JobTemplates => Set<JobTemplate>();
@@ -433,6 +435,16 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
 
     private static void ConfigureStaffing(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<StaffingArea>(builder =>
+        {
+            builder.ToTable("StaffingAreas", "hr");
+            builder.HasKey(area => area.Id);
+            builder.HasIndex(area => area.Name).IsUnique();
+            builder.Property(area => area.Name).HasMaxLength(140).IsRequired();
+            builder.Property(area => area.Priority).IsRequired();
+            builder.Property(area => area.IsActive).HasDefaultValue(true);
+        });
+
         modelBuilder.Entity<StaffingPosition>(builder =>
         {
             builder.ToTable("Positions", "hr");
@@ -465,6 +477,7 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
             builder.ToTable("JobTemplatePositions", "hr");
             builder.HasKey(position => position.Id);
             builder.HasIndex(position => new { position.JobTemplateId, position.PositionId }).IsUnique();
+            builder.HasIndex(position => position.AreaId);
             builder.Property(position => position.RowVersion).IsRowVersion();
 
             builder.OwnsOne(position => position.Vacancy, owned =>
@@ -478,6 +491,7 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
             builder.Navigation(position => position.Vacancy).IsRequired();
 
             builder.HasOne<JobTemplate>().WithMany().HasForeignKey(position => position.JobTemplateId).OnDelete(DeleteBehavior.Cascade);
+            builder.HasOne<StaffingArea>().WithMany().HasForeignKey(position => position.AreaId).OnDelete(DeleteBehavior.Restrict);
             builder.HasOne<StaffingPosition>().WithMany().HasForeignKey(position => position.PositionId).OnDelete(DeleteBehavior.Restrict);
         });
     }

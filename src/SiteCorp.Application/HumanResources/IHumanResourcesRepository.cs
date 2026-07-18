@@ -48,6 +48,12 @@ public interface IHumanResourcesRepository
 
     Task AddPersonAsync(Person person, CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<StaffingArea>> GetStaffingAreasAsync(CancellationToken cancellationToken = default);
+
+    Task<StaffingArea?> GetStaffingAreaByIdAsync(Guid areaId, CancellationToken cancellationToken = default);
+
+    Task AddStaffingAreaAsync(StaffingArea area, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Position>> GetStaffingPositionsAsync(CancellationToken cancellationToken = default);
 
     Task<Position?> GetStaffingPositionByIdAsync(Guid positionId, CancellationToken cancellationToken = default);

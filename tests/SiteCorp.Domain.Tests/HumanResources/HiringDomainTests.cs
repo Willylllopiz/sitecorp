@@ -14,6 +14,7 @@ public sealed class HiringDomainTests
         var templatePosition = new JobTemplatePosition(
             Guid.NewGuid(),
             Guid.NewGuid(),
+            Guid.NewGuid(),
             new VacancyInfo(totalVacancies: 2, filledVacancies: 0, baseSalary: 45000, salaryCategory: "CAT-1"));
 
         templatePosition.OccupyVacancy();
@@ -26,6 +27,7 @@ public sealed class HiringDomainTests
     public void OccupyVacancy_ThrowsWhenNoVacancyIsAvailable()
     {
         var templatePosition = new JobTemplatePosition(
+            Guid.NewGuid(),
             Guid.NewGuid(),
             Guid.NewGuid(),
             new VacancyInfo(totalVacancies: 1, filledVacancies: 1, baseSalary: 45000, salaryCategory: "CAT-1"));

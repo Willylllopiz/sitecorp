@@ -11,11 +11,16 @@ public sealed class JobTemplatePosition
         RowVersion = [];
     }
 
-    public JobTemplatePosition(Guid jobTemplateId, Guid positionId, VacancyInfo vacancy)
+    public JobTemplatePosition(Guid jobTemplateId, Guid areaId, Guid positionId, VacancyInfo vacancy)
     {
         if (jobTemplateId == Guid.Empty)
         {
             throw new DomainException("La posicion debe pertenecer a una plantilla.");
+        }
+
+        if (areaId == Guid.Empty)
+        {
+            throw new DomainException("La posicion de plantilla debe pertenecer a un area.");
         }
 
         if (positionId == Guid.Empty)
@@ -25,6 +30,7 @@ public sealed class JobTemplatePosition
 
         Id = Guid.NewGuid();
         JobTemplateId = jobTemplateId;
+        AreaId = areaId;
         PositionId = positionId;
         Vacancy = vacancy;
         RowVersion = [];
@@ -33,6 +39,8 @@ public sealed class JobTemplatePosition
     public Guid Id { get; private set; }
 
     public Guid JobTemplateId { get; private set; }
+
+    public Guid AreaId { get; private set; }
 
     public Guid PositionId { get; private set; }
 

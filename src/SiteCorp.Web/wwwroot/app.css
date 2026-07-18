@@ -404,6 +404,10 @@ h2 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.work-grid.hiring-setup {
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
+}
+
 .panel-heading,
 .department-row,
 .request-row,
@@ -603,6 +607,60 @@ td span {
     margin-top: 18px;
 }
 
+.template-group {
+    border-top: 1px solid var(--line);
+    display: grid;
+    gap: 12px;
+    padding-top: 14px;
+}
+
+.template-group:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.template-group-heading,
+.area-group-heading {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+.template-group-heading strong,
+.area-group-heading strong {
+    color: var(--ink);
+}
+
+.template-group-heading span {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.area-group {
+    display: grid;
+    gap: 8px;
+}
+
+.area-group-heading {
+    justify-content: flex-start;
+}
+
+.priority-chip {
+    align-items: center;
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--brand-primary);
+    display: inline-flex;
+    font-size: 0.78rem;
+    font-weight: 900;
+    height: 28px;
+    justify-content: center;
+    min-width: 38px;
+}
+
 .compact-row {
     align-items: center;
     border-top: 1px solid var(--line);
@@ -610,6 +668,10 @@ td span {
     gap: 14px;
     justify-content: space-between;
     padding-top: 12px;
+}
+
+.area-position-row {
+    margin-left: 48px;
 }
 
 .compact-row strong,
@@ -906,7 +968,8 @@ td span {
     .page-header,
     .content-grid,
     .work-grid,
-    .work-grid.three {
+    .work-grid.three,
+    .work-grid.hiring-setup {
         display: block;
     }
 
@@ -925,7 +988,8 @@ td span {
     }
 
     .work-grid .panel,
-    .work-grid.three .panel {
+    .work-grid.three .panel,
+    .work-grid.hiring-setup .panel {
         margin-bottom: 18px;
     }
 
@@ -969,6 +1033,10 @@ td span {
         align-items: flex-start;
         justify-items: start;
         text-align: left;
+    }
+
+    .area-position-row {
+        margin-left: 0;
     }
 
     .department-numbers {

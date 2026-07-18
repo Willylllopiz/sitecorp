@@ -144,6 +144,11 @@ public sealed record HumanResourcesCatalogsResponse(
     IReadOnlyList<CatalogItemResponse> DrivingLicenseCategories,
     IReadOnlyList<CatalogItemResponse> RetireeRehireStatuses);
 
+public sealed record DocumentAttachmentDto(
+    string FileName,
+    string ContentType,
+    string ContentBase64);
+
 public sealed record CreatePersonRequest(
     string FirstName,
     string FirstLastName,
@@ -154,10 +159,14 @@ public sealed record CreatePersonRequest(
     int NumberOfChildren,
     string? DefenseSituation,
     bool PreEmploymentCheck,
+    DocumentAttachmentDto? PreEmploymentCheckDocument,
     string? CompletedDegree,
     bool HasCriminalRecord,
+    DocumentAttachmentDto? CriminalRecordDocument,
     bool HasEmploymentContract,
-    string? DisciplinaryMeasures,
+    DocumentAttachmentDto? EmploymentContractDocument,
+    bool HasDisciplinaryMeasures,
+    DocumentAttachmentDto? DisciplinaryMeasuresDocument,
     Guid EducationLevelId,
     string? Specialty,
     Guid MaritalStatusId,

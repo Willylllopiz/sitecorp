@@ -14,8 +14,8 @@ public sealed class Person
         DefenseSituation = string.Empty;
         CompletedDegree = string.Empty;
         Specialty = string.Empty;
-        DisciplinaryMeasures = string.Empty;
         DrivingLicenseCategories = new List<PersonDrivingLicenseCategory>();
+        Documents = new List<Document>();
     }
 
     public Person(
@@ -29,7 +29,7 @@ public sealed class Person
         string? completedDegree,
         bool hasCriminalRecord,
         bool hasEmploymentContract,
-        string? disciplinaryMeasures,
+        bool hasDisciplinaryMeasures,
         Guid educationLevelId,
         string? specialty,
         Guid maritalStatusId,
@@ -65,7 +65,7 @@ public sealed class Person
         CompletedDegree = Normalize(completedDegree);
         HasCriminalRecord = hasCriminalRecord;
         HasEmploymentContract = hasEmploymentContract;
-        DisciplinaryMeasures = Normalize(disciplinaryMeasures);
+        HasDisciplinaryMeasures = hasDisciplinaryMeasures;
         EducationLevelId = educationLevelId;
         Specialty = Normalize(specialty);
         MaritalStatusId = maritalStatusId;
@@ -79,6 +79,7 @@ public sealed class Person
             .Distinct()
             .Select(categoryId => new PersonDrivingLicenseCategory(Id, categoryId))
             .ToList();
+        Documents = new List<Document>();
         CreatedAt = DateTimeOffset.UtcNow;
     }
 
@@ -104,7 +105,7 @@ public sealed class Person
 
     public bool HasEmploymentContract { get; private set; }
 
-    public string? DisciplinaryMeasures { get; private set; }
+    public bool HasDisciplinaryMeasures { get; private set; }
 
     public Guid EducationLevelId { get; private set; }
 
@@ -122,11 +123,18 @@ public sealed class Person
 
     public List<PersonDrivingLicenseCategory> DrivingLicenseCategories { get; private set; }
 
+    public List<Document> Documents { get; private set; }
+
     public Guid RetireeRehireStatusId { get; private set; }
 
     public PhysicalData PhysicalData { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
+
+    public void AttachDocument(string documentType, string fileName, string contentType, string contentBase64)
+    {
+        Documents.Add(new Document(Id, documentType, fileName, contentType, contentBase64));
+    }
 
     private static void ValidateRequiredCatalog(Guid id, string message)
     {

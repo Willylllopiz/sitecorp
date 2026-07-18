@@ -526,6 +526,28 @@ td span {
     width: auto;
 }
 
+.document-upload {
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+}
+
+.document-upload input[type="file"] {
+    background: #ffffff;
+    cursor: pointer;
+    padding: 9px 12px;
+}
+
+.document-upload span {
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
 .multi-select {
     display: grid;
     gap: 8px;

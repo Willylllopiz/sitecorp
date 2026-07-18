@@ -2,6 +2,8 @@
 @page "/people"
 @rendermode InteractiveServer
 @attribute [Authorize]
+@using System.IO
+@using Microsoft.AspNetCore.Components.Forms
 @inject HumanResourcesApiClient HrClient
 
 <PageTitle>SiteCorp | Candidatos</PageTitle>
@@ -207,21 +209,81 @@ else
                     <input @bind="_form.CompletedDegree" maxlength="180" />
                 </label>
                 <label class="checkbox-label">
-                    <input type="checkbox" @bind="_form.PreEmploymentCheck" />
+                    <input type="checkbox"
+                           checked="@_form.PreEmploymentCheck"
+                           @onchange="eventArgs => OnDocumentFlagChanged(eventArgs, CandidateDocumentKind.PreEmploymentCheck)" />
                     Chequeo pre-empleo
                 </label>
+                @if (_form.PreEmploymentCheck)
+                {
+                    <div class="span-2 document-upload">
+                        <label>
+                            Documento chequeo pre-empleo
+                            <InputFile OnChange="eventArgs => OnDocumentSelectedAsync(eventArgs, CandidateDocumentKind.PreEmploymentCheck)" />
+                        </label>
+                        @if (_form.PreEmploymentCheckDocument is not null)
+                        {
+                            <span>@DocumentLabel(_form.PreEmploymentCheckDocument)</span>
+                        }
+                    </div>
+                }
                 <label class="checkbox-label">
-                    <input type="checkbox" @bind="_form.HasEmploymentContract" />
+                    <input type="checkbox"
+                           checked="@_form.HasEmploymentContract"
+                           @onchange="eventArgs => OnDocumentFlagChanged(eventArgs, CandidateDocumentKind.EmploymentContract)" />
                     Tiene contrato laboral
                 </label>
+                @if (_form.HasEmploymentContract)
+                {
+                    <div class="span-2 document-upload">
+                        <label>
+                            Documento contrato laboral
+                            <InputFile OnChange="eventArgs => OnDocumentSelectedAsync(eventArgs, CandidateDocumentKind.EmploymentContract)" />
+                        </label>
+                        @if (_form.EmploymentContractDocument is not null)
+                        {
+                            <span>@DocumentLabel(_form.EmploymentContractDocument)</span>
+                        }
+                    </div>
+                }
                 <label class="checkbox-label">
-                    <input type="checkbox" @bind="_form.HasCriminalRecord" />
+                    <input type="checkbox"
+                           checked="@_form.HasCriminalRecord"
+                           @onchange="eventArgs => OnDocumentFlagChanged(eventArgs, CandidateDocumentKind.CriminalRecord)" />
                     Antecedentes penales
                 </label>
-                <label class="span-2">
+                @if (_form.HasCriminalRecord)
+                {
+                    <div class="span-2 document-upload">
+                        <label>
+                            Documento antecedentes penales
+                            <InputFile OnChange="eventArgs => OnDocumentSelectedAsync(eventArgs, CandidateDocumentKind.CriminalRecord)" />
+                        </label>
+                        @if (_form.CriminalRecordDocument is not null)
+                        {
+                            <span>@DocumentLabel(_form.CriminalRecordDocument)</span>
+                        }
+                    </div>
+                }
+                <label class="checkbox-label">
+                    <input type="checkbox"
+                           checked="@_form.HasDisciplinaryMeasures"
+                           @onchange="eventArgs => OnDocumentFlagChanged(eventArgs, CandidateDocumentKind.DisciplinaryMeasures)" />
                     Medidas disciplinarias
-                    <textarea @bind="_form.DisciplinaryMeasures" rows="3"></textarea>
                 </label>
+                @if (_form.HasDisciplinaryMeasures)
+                {
+                    <div class="span-2 document-upload">
+                        <label>
+                            Documento medidas disciplinarias
+                            <InputFile OnChange="eventArgs => OnDocumentSelectedAsync(eventArgs, CandidateDocumentKind.DisciplinaryMeasures)" />
+                        </label>
+                        @if (_form.DisciplinaryMeasuresDocument is not null)
+                        {
+                            <span>@DocumentLabel(_form.DisciplinaryMeasuresDocument)</span>
+                        }
+                    </div>
+                }
 
                 <div class="form-actions span-2">
                     <button class="action-button" type="submit" disabled="@_isSaving">
@@ -258,6 +320,8 @@ else
 }
 
 @code {
+    private const long MaxDocumentSizeBytes = 10 * 1024 * 1024;
+
     private readonly PersonForm _form = new();
     private HumanResourcesCatalogsResponse _catalogs = EmptyCatalogs();
     private IReadOnlyList<PersonResponse> _people = [];
@@ -309,6 +373,11 @@ else
                 return;
             }
 
+            if (!EnsureSelectedDocuments())
+            {
+                return;
+            }
+
             var request = new CreatePersonRequest(
                 _form.FirstName,
                 _form.FirstLastName,
@@ -319,10 +388,14 @@ else
                 _form.NumberOfChildren,
                 EmptyToNull(_form.DefenseSituation),
                 _form.PreEmploymentCheck,
+                _form.PreEmploymentCheck ? _form.PreEmploymentCheckDocument?.ToDto() : null,
                 EmptyToNull(_form.CompletedDegree),
                 _form.HasCriminalRecord,
+                _form.HasCriminalRecord ? _form.CriminalRecordDocument?.ToDto() : null,
                 _form.HasEmploymentContract,
-                EmptyToNull(_form.DisciplinaryMeasures),
+                _form.HasEmploymentContract ? _form.EmploymentContractDocument?.ToDto() : null,
+                _form.HasDisciplinaryMeasures,
+                _form.HasDisciplinaryMeasures ? _form.DisciplinaryMeasuresDocument?.ToDto() : null,
                 _form.EducationLevelId,
                 RequiresSpecialty(_form.EducationLevelId) ? EmptyToNull(_form.Specialty) : null,
                 _form.MaritalStatusId,
@@ -356,6 +429,35 @@ else
         }
     }
 
+    private bool EnsureSelectedDocuments()
+    {
+        if (_form.PreEmploymentCheck && _form.PreEmploymentCheckDocument is null)
+        {
+            ShowError("Adjunta el documento del chequeo pre-empleo.");
+            return false;
+        }
+
+        if (_form.HasEmploymentContract && _form.EmploymentContractDocument is null)
+        {
+            ShowError("Adjunta el documento del contrato laboral.");
+            return false;
+        }
+
+        if (_form.HasCriminalRecord && _form.CriminalRecordDocument is null)
+        {
+            ShowError("Adjunta el documento de antecedentes penales.");
+            return false;
+        }
+
+        if (_form.HasDisciplinaryMeasures && _form.DisciplinaryMeasuresDocument is null)
+        {
+            ShowError("Adjunta el documento de medidas disciplinarias.");
+            return false;
+        }
+
+        return true;
+    }
+
     private void ApplyCatalogDefaults()
     {
         _form.EducationLevelId = FirstId(_catalogs.EducationLevels, _form.EducationLevelId);
@@ -377,6 +479,115 @@ else
             _form.DrivingLicenseCategoryIds.Clear();
             _isDrivingLicenseMenuOpen = false;
         }
+    }
+
+    private void OnDocumentFlagChanged(ChangeEventArgs eventArgs, CandidateDocumentKind documentKind)
+    {
+        var isChecked = eventArgs.Value is true;
+
+        switch (documentKind)
+        {
+            case CandidateDocumentKind.PreEmploymentCheck:
+                _form.PreEmploymentCheck = isChecked;
+                break;
+            case CandidateDocumentKind.EmploymentContract:
+                _form.HasEmploymentContract = isChecked;
+                break;
+            case CandidateDocumentKind.CriminalRecord:
+                _form.HasCriminalRecord = isChecked;
+                break;
+            case CandidateDocumentKind.DisciplinaryMeasures:
+                _form.HasDisciplinaryMeasures = isChecked;
+                break;
+        }
+
+        if (!isChecked)
+        {
+            ClearDocument(documentKind);
+        }
+    }
+
+    private async Task OnDocumentSelectedAsync(InputFileChangeEventArgs eventArgs, CandidateDocumentKind documentKind)
+    {
+        var file = eventArgs.File;
+
+        if (file.Size > MaxDocumentSizeBytes)
+        {
+            ClearDocument(documentKind);
+            ShowError("El documento no puede superar 10 MB.");
+            return;
+        }
+
+        try
+        {
+            using var readStream = file.OpenReadStream(MaxDocumentSizeBytes);
+            using var memoryStream = new MemoryStream();
+            await readStream.CopyToAsync(memoryStream);
+
+            SetDocument(
+                documentKind,
+                new PersonDocumentForm(
+                    file.Name,
+                    string.IsNullOrWhiteSpace(file.ContentType) ? "application/octet-stream" : file.ContentType,
+                    Convert.ToBase64String(memoryStream.ToArray()),
+                    file.Size));
+            _message = null;
+        }
+        catch (Exception exception)
+        {
+            ClearDocument(documentKind);
+            ShowError($"No se pudo leer el documento: {exception.Message}");
+        }
+    }
+
+    private void SetDocument(CandidateDocumentKind documentKind, PersonDocumentForm document)
+    {
+        switch (documentKind)
+        {
+            case CandidateDocumentKind.PreEmploymentCheck:
+                _form.PreEmploymentCheckDocument = document;
+                break;
+            case CandidateDocumentKind.EmploymentContract:
+                _form.EmploymentContractDocument = document;
+                break;
+            case CandidateDocumentKind.CriminalRecord:
+                _form.CriminalRecordDocument = document;
+                break;
+            case CandidateDocumentKind.DisciplinaryMeasures:
+                _form.DisciplinaryMeasuresDocument = document;
+                break;
+        }
+    }
+
+    private void ClearDocument(CandidateDocumentKind documentKind)
+    {
+        switch (documentKind)
+        {
+            case CandidateDocumentKind.PreEmploymentCheck:
+                _form.PreEmploymentCheckDocument = null;
+                break;
+            case CandidateDocumentKind.EmploymentContract:
+                _form.EmploymentContractDocument = null;
+                break;
+            case CandidateDocumentKind.CriminalRecord:
+                _form.CriminalRecordDocument = null;
+                break;
+            case CandidateDocumentKind.DisciplinaryMeasures:
+                _form.DisciplinaryMeasuresDocument = null;
+                break;
+        }
+    }
+
+    private static string DocumentLabel(PersonDocumentForm document)
+    {
+        return $"{document.FileName} ({FormatFileSize(document.Size)})";
+    }
+
+    private static string FormatFileSize(long size)
+    {
+        return size < 1024 * 1024
+            ? $"{Math.Max(1L, size / 1024)} KB"
+            : $"{size / 1024m / 1024m:0.##} MB";
     }
 
     private void ToggleDrivingLicenseMenu()
@@ -578,6 +789,26 @@ else
         return new HumanResourcesCatalogsResponse([], [], [], [], [], [], [], []);
     }
 
+    private enum CandidateDocumentKind
+    {
+        PreEmploymentCheck,
+        EmploymentContract,
+        CriminalRecord,
+        DisciplinaryMeasures
+    }
+
+    private sealed record PersonDocumentForm(
+        string FileName,
+        string ContentType,
+        string ContentBase64,
+        long Size)
+    {
+        public DocumentAttachmentDto ToDto()
+        {
+            return new DocumentAttachmentDto(FileName, ContentType, ContentBase64);
+        }
+    }
+
     private sealed class PersonForm
     {
         public string FirstName { get; set; } = string.Empty;
@@ -602,15 +833,23 @@ else
 
         public string? DefenseSituation { get; set; }
 
-        public bool PreEmploymentCheck { get; set; } = true;
+        public bool PreEmploymentCheck { get; set; }
+
+        public PersonDocumentForm? PreEmploymentCheckDocument { get; set; }
 
         public string? CompletedDegree { get; set; }
 
         public bool HasCriminalRecord { get; set; }
 
-        public bool HasEmploymentContract { get; set; } = true;
+        public PersonDocumentForm? CriminalRecordDocument { get; set; }
 
-        public string? DisciplinaryMeasures { get; set; }
+        public bool HasEmploymentContract { get; set; }
+
+        public PersonDocumentForm? EmploymentContractDocument { get; set; }
+
+        public bool HasDisciplinaryMeasures { get; set; }
+
+        public PersonDocumentForm? DisciplinaryMeasuresDocument { get; set; }
 
         public Guid EducationLevelId { get; set; }
 
@@ -655,11 +894,15 @@ else
             PostalCode = null;
             NumberOfChildren = 0;
             DefenseSituation = null;
-            PreEmploymentCheck = true;
+            PreEmploymentCheck = false;
+            PreEmploymentCheckDocument = null;
             CompletedDegree = null;
             HasCriminalRecord = false;
-            HasEmploymentContract = true;
-            DisciplinaryMeasures = null;
+            CriminalRecordDocument = null;
+            HasEmploymentContract = false;
+            EmploymentContractDocument = null;
+            HasDisciplinaryMeasures = false;
+            DisciplinaryMeasuresDocument = null;
             Specialty = null;
             HasDrivingLicense = false;
             DrivingLicenseCategoryIds.Clear();

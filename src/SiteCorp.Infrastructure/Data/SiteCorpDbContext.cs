@@ -319,7 +319,7 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
             builder.Property(person => person.DefenseSituation).HasMaxLength(180);
             builder.Property(person => person.CompletedDegree).HasMaxLength(180);
             builder.Property(person => person.Specialty).HasMaxLength(180);
-            builder.Property(person => person.DisciplinaryMeasures).HasMaxLength(360);
+            builder.Property(person => person.HasDisciplinaryMeasures).IsRequired();
             builder.Property(person => person.CreatedAt).IsRequired();
 
             builder.OwnsOne(person => person.FullName, owned =>
@@ -391,12 +391,15 @@ public sealed class SiteCorpDbContext(DbContextOptions<SiteCorpDbContext> option
             builder.HasKey(document => document.Id);
             builder.HasIndex(document => document.PersonId);
             builder.Property(document => document.DocumentType).HasMaxLength(80).IsRequired();
-            builder.Property(document => document.FilePath).HasMaxLength(500).IsRequired();
+            builder.Property(document => document.FilePath).HasMaxLength(500);
+            builder.Property(document => document.FileName).HasMaxLength(260).IsRequired();
+            builder.Property(document => document.ContentType).HasMaxLength(120).IsRequired();
+            builder.Property(document => document.ContentBase64).IsRequired();
             builder.Property(document => document.UploadDate).IsRequired();
             builder.Property(document => document.IsValid).HasDefaultValue(true);
 
             builder.HasOne<Person>()
-                .WithMany()
+                .WithMany(person => person.Documents)
                 .HasForeignKey(document => document.PersonId)
                 .OnDelete(DeleteBehavior.Cascade);
         });

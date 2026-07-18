@@ -6,5 +6,9 @@ public sealed class DomainException : Exception
         : base(message)
     {
     }
-}
 
+    public DomainException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}

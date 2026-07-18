@@ -218,6 +218,7 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
         }
 
         await EnsurePersonCatalogsAsync(request, cancellationToken);
+        EnsureRequiredPersonDocuments(request);
         var educationLevel = (await repository.GetEducationLevelsAsync(cancellationToken))
             .First(level => level.Id == request.EducationLevelId);
         var specialty = NormalizeSpecialty(request.Specialty, RequiresSpecialty(educationLevel.Code));
@@ -233,7 +234,7 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
             request.CompletedDegree,
             request.HasCriminalRecord,
             request.HasEmploymentContract,
-            request.DisciplinaryMeasures,
+            request.HasDisciplinaryMeasures,
             request.EducationLevelId,
             specialty,
             request.MaritalStatusId,
@@ -244,6 +245,8 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
             request.HasDrivingLicense ? DistinctIds(request.DrivingLicenseCategoryIds) : [],
             request.RetireeRehireStatusId,
             MapPhysicalData(request.PhysicalData));
+
+        AttachPersonDocuments(person, request);
 
         await repository.AddPersonAsync(person, cancellationToken);
         await repository.SaveChangesAsync(cancellationToken);
@@ -460,6 +463,92 @@ public sealed class HumanResourcesService(IHumanResourcesRepository repository)
                 "No existe la categoria de licencia indicada.",
                 cancellationToken);
         }
+    }
+
+    private static void EnsureRequiredPersonDocuments(SiteCorp.Shared.CreatePersonRequest request)
+    {
+        EnsureRequiredDocument(
+            request.PreEmploymentCheck,
+            request.PreEmploymentCheckDocument,
+            "Debe adjuntar el documento del chequeo pre-empleo.");
+
+        EnsureRequiredDocument(
+            request.HasEmploymentContract,
+            request.EmploymentContractDocument,
+            "Debe adjuntar el documento del contrato laboral.");
+
+        EnsureRequiredDocument(
+            request.HasCriminalRecord,
+            request.CriminalRecordDocument,
+            "Debe adjuntar el documento de antecedentes penales.");
+
+        EnsureRequiredDocument(
+            request.HasDisciplinaryMeasures,
+            request.DisciplinaryMeasuresDocument,
+            "Debe adjuntar el documento de medidas disciplinarias.");
+    }
+
+    private static void EnsureRequiredDocument(
+        bool isRequired,
+        SiteCorp.Shared.DocumentAttachmentDto? document,
+        string message)
+    {
+        if (!isRequired)
+        {
+            return;
+        }
+
+        if (document is null ||
+            string.IsNullOrWhiteSpace(document.FileName) ||
+            string.IsNullOrWhiteSpace(document.ContentBase64))
+        {
+            throw new DomainException(message);
+        }
+    }
+
+    private static void AttachPersonDocuments(Person person, SiteCorp.Shared.CreatePersonRequest request)
+    {
+        AttachPersonDocument(
+            person,
+            request.PreEmploymentCheck,
+            request.PreEmploymentCheckDocument,
+            PersonDocumentTypes.PreEmploymentCheck);
+
+        AttachPersonDocument(
+            person,
+            request.HasEmploymentContract,
+            request.EmploymentContractDocument,
+            PersonDocumentTypes.EmploymentContract);
+
+        AttachPersonDocument(
+            person,
+            request.HasCriminalRecord,
+            request.CriminalRecordDocument,
+            PersonDocumentTypes.CriminalRecord);
+
+        AttachPersonDocument(
+            person,
+            request.HasDisciplinaryMeasures,
+            request.DisciplinaryMeasuresDocument,
+            PersonDocumentTypes.DisciplinaryMeasures);
+    }
+
+    private static void AttachPersonDocument(
+        Person person,
+        bool shouldAttach,
+        SiteCorp.Shared.DocumentAttachmentDto? document,
+        string documentType)
+    {
+        if (!shouldAttach || document is null)
+        {
+            return;
+        }
+
+        person.AttachDocument(
+            documentType,
+            document.FileName,
+            document.ContentType,
+            document.ContentBase64);
     }
 
     private async Task EnsureCatalogAsync<TCatalog>(Guid id, string message, CancellationToken cancellationToken)
